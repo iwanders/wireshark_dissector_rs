@@ -17,6 +17,20 @@ use std::ffi::CStr;
 use std::ffi::CString;
 // https://doc.rust-lang.org/std/ffi/struct.CStr.html
 
+//https://github.com/wireshark/wireshark/blob/master/epan/dissectors/packet-g723.c
+
+extern "C" fn dissect_hello(tvb: *mut wireshark::tvbuff_t, packet_info: *mut wireshark::packet_info, tree: *mut wireshark::proto_tree, data: *mut libc::c_void) -> u32
+{
+    unsafe
+    {
+        println!("Dissector hello called!");
+        let proto_hello: i32 = -1;
+        wireshark::proto_tree_add_protocol_format(tree, proto_hello, tvb, 0, -1, util::perm_string_ptr("This is Hello version %s, a Wireshark postdissector plugin prototype"), plugin_version);
+        return wireshark::tvb_reported_length(tvb) as u32;
+    }
+    return 0;
+}
+
 
 extern "C" fn proto_register_hello()
 {
@@ -27,18 +41,13 @@ extern "C" fn proto_register_hello()
     unsafe 
     {
         wireshark::proto_register_protocol(util::perm_string_ptr("The thingy"), cstr.as_ptr(), cstr.as_ptr());
-    }
 
-    /*
-    let cstr : Box<CString> = Box::new(CString::new("hello").unwrap());
-    unsafe 
-    {
-        wireshark::proto_register_protocol(cstr.as_ptr(), cstr.as_ptr(), cstr.as_ptr());
+
+        let proto_hello: i32 = -1;
+        let z = wireshark::create_dissector_handle(Some(dissect_hello), proto_hello);
+        println!("Proto hello: {:?}", proto_hello);
+        wireshark::register_postdissector(z);
     }
-    Box::leak(cstr);
-    */
-    //~ proto_hello = proto_register_protocol("Wireshark Hello Plugin", "Hello WS", "hello_ws");
-    //~ handle_hello = create_dissector_handle(dissect_hello, proto_hello);
     //~ register_postdissector(handle_hello);
 }
 

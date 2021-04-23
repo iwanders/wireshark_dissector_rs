@@ -8,7 +8,7 @@ use std::os::raw::c_char;
 use std::ffi::CString;
 use std::sync::Mutex;
 
-// Need to tell that it's safe to move within threads, otherwise we can't lazy_static it.
+// Need to tell that it's safe to move between threads, otherwise we can't lazy_static it.
 struct ThreadSafeStringHolder
 {
     v: * const i8
