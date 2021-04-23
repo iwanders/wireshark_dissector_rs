@@ -17,15 +17,17 @@ use std::ffi::CStr;
 use std::ffi::CString;
 // https://doc.rust-lang.org/std/ffi/struct.CStr.html
 
-//https://github.com/wireshark/wireshark/blob/master/epan/dissectors/packet-g723.c
+// https://github.com/wireshark/wireshark/blob/master/epan/dissectors/packet-g723.c
+
+static mut proto_hello_hf : i32 = 0;
 
 extern "C" fn dissect_hello(tvb: *mut wireshark::tvbuff_t, packet_info: *mut wireshark::packet_info, tree: *mut wireshark::proto_tree, data: *mut libc::c_void) -> u32
 {
     unsafe
     {
         println!("Dissector hello called!");
-        let proto_hello: i32 = -1;
-        wireshark::proto_tree_add_protocol_format(tree, proto_hello, tvb, 0, -1, util::perm_string_ptr("This is Hello version %s, a Wireshark postdissector plugin prototype"), plugin_version);
+        //~ let proto_hello: i32 = -1;
+        wireshark::proto_tree_add_protocol_format(tree, proto_hello_hf, tvb, 0, -1, util::perm_string_ptr("This is Hello version %s, a Wireshark postdissector plugin prototype"), plugin_version);
         return wireshark::tvb_reported_length(tvb) as u32;
     }
     return 0;
