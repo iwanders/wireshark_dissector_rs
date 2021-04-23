@@ -1,12 +1,16 @@
 // https://doc.rust-lang.org/nomicon/ffi.html
 extern crate libc;
 
+
+#[macro_use]
+extern crate lazy_static;
 #[no_mangle]
 static plugin_version: [libc::c_char;  4] = [50, 46, 54, 0];  // "2.6"
 #[no_mangle]
 static plugin_release: [libc::c_char;  4] = [50, 46, 54, 0];  // "2.6"
 
 
+mod util;
 mod wireshark;
 
 use std::ffi::CStr;
@@ -17,11 +21,22 @@ use std::ffi::CString;
 extern "C" fn proto_register_hello()
 {
     println!("proto_register_hello");
-    let cstr = CString::new("hello").unwrap();
+    //~ let cstr = CString::new("hello").unwrap();
+
+    let cstr = util::perm_string("hello");
+    unsafe 
+    {
+        wireshark::proto_register_protocol(util::perm_string_ptr("The thingy"), cstr.as_ptr(), cstr.as_ptr());
+    }
+
+    /*
+    let cstr : Box<CString> = Box::new(CString::new("hello").unwrap());
     unsafe 
     {
         wireshark::proto_register_protocol(cstr.as_ptr(), cstr.as_ptr(), cstr.as_ptr());
     }
+    Box::leak(cstr);
+    */
     //~ proto_hello = proto_register_protocol("Wireshark Hello Plugin", "Hello WS", "hello_ws");
     //~ handle_hello = create_dissector_handle(dissect_hello, proto_hello);
     //~ register_postdissector(handle_hello);
@@ -53,3 +68,5 @@ pub fn plugin_register() {
         //~ wireshark::proto_register_plugin(&plug);
     }
 }
+
+
