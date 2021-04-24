@@ -1,4 +1,8 @@
 // https://doc.rust-lang.org/nomicon/ffi.html
+
+
+// We can probably hook; https://github.com/wireshark/wireshark/blob/ebfbf958f6930b2dad486b33277470e8368dc111/epan/dissectors/packet-usb.c#L3516-L3518
+
 extern crate libc;
 
 extern crate bitflags;
@@ -16,6 +20,9 @@ mod wireshark;
 use std::ffi::CStr;
 use std::ffi::CString;
 // https://doc.rust-lang.org/std/ffi/struct.CStr.html
+
+
+
 
 // https://github.com/wireshark/wireshark/blob/master/epan/dissectors/packet-g723.c
 

@@ -3,6 +3,7 @@ name = "analyzer"
 version = "0.1.0"
 authors = ["Ivor Wanders <ivor@iwanders.net>"]
 edition = "2018"
+links = "wireshark"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -15,5 +16,4 @@ bitflags = "1.2.1"
 name = "razer_wireshark_dissector"
 path = "src/lib.rs"
 crate-type = ["cdylib"]      # Creates dynamic lib
-
 
