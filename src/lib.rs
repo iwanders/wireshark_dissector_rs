@@ -27,10 +27,28 @@ extern "C" fn dissect_hello(tvb: *mut wireshark::tvbuff_t, packet_info: *mut wir
     {
         println!("Dissector hello called!");
         //~ let proto_hello: i32 = -1;
-        wireshark::proto_tree_add_protocol_format(tree, proto_hello_hf, tvb, 0, -1, util::perm_string_ptr("This is Hello version %s, a Wireshark postdissector plugin prototype"), plugin_version);
+        wireshark::proto_tree_add_protocol_format(tree, proto_hello_hf, tvb, 0, -1, util::perm_string_ptr("This is Hello version, a Wireshark postdissector plugin prototype"));
         return wireshark::tvb_reported_length(tvb) as u32;
     }
     return 0;
+}
+
+//https://stackoverflow.com/a/55323803
+trait AsMutPtr<T> {
+    fn as_mut_ptr(&mut self) -> *mut T;
+}
+
+impl<'a, T> AsMutPtr<T> for Option<&'a mut T> {
+    fn as_mut_ptr(&mut self) -> *mut T {
+        match self {
+            Some(v) => *v,
+            None => {
+                println!("Its a nullptr :( ");
+                ptr::null_mut()
+            }
+            ,
+        }
+    }
 }
 
 
@@ -39,16 +57,40 @@ extern "C" fn proto_register_hello()
     println!("proto_register_hello");
     //~ let cstr = CString::new("hello").unwrap();
 
+    static mut  hf : [wireshark::ThreadUnSafeHeaderFieldRegisterInfoHolder; 1] = [wireshark::ThreadUnSafeHeaderFieldRegisterInfoHolder{ data: None} ];
+    static mut header_int : i32 = -1;
+    unsafe
+    {
+        hf[0].data = Some(wireshark::hf_register_info{
+            p_id: &mut header_int as *mut i32,
+            hfinfo: {
+                wireshark::header_field_info{
+                    name: util::perm_string_ptr("KSDJFLSDJ"),
+                    abbrev: util::perm_string_ptr("thign.type"),
+                    type_: wireshark::ftenum::PROTOCOL,
+                    ..Default::default()}
+                }
+            });
+    }
+
     let cstr = util::perm_string("hello");
     unsafe 
     {
-        wireshark::proto_register_protocol(util::perm_string_ptr("The thingy"), cstr.as_ptr(), cstr.as_ptr());
+        let proto_int = wireshark::proto_register_protocol(util::perm_string_ptr("The thingy"), cstr.as_ptr(), cstr.as_ptr());
+        println!("Proto proto_int: {:?}", proto_int);
 
 
         let proto_hello: i32 = -1;
         let z = wireshark::create_dissector_handle(Some(dissect_hello), proto_hello);
         println!("Proto hello: {:?}", proto_hello);
         wireshark::register_postdissector(z);
+        //~ let p = hf[0].data.map_or_else(ptr::null, |x| x);
+        //~ unsafe { ffi_call(p) }
+        let rawptr = hf[0].data.as_mut().as_mut_ptr() as *mut wireshark::hf_register_info;
+        println!("rawptr hello: {:?}", rawptr);
+        println!("hf[0].data.thing: {}", hf[0].data.is_some());
+        wireshark::proto_register_field_array(proto_int, rawptr, 1);
+        proto_hello_hf = header_int;
     }
     //~ register_postdissector(handle_hello);
 }
