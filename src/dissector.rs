@@ -1,26 +1,74 @@
 
 pub trait PacketDisplay
 {
-    fn display(item: DisplayItem);
+    fn display(self: &Self, item: DisplayItem);
 }
 
 // A trait for things that can dissect data.
 pub trait Dissector
 {
-    fn dissect<D: PacketDisplay>(display : D /* something that we can pass display entities into */, bytes: [u8]/* Something with bytes? */);
+    fn dissect(self: &Self, display : &PacketDisplay /* something that we can pass display entities into */, bytes: &[u8]/* Something with bytes? */);
+    fn foo(self: &Self);
+}
+
+#[derive(Debug, Copy, Clone)]
+enum FieldType
+{
+    PROTOCOL,
+    UINT8
+}
+#[derive(Debug, Copy, Clone)]
+enum FieldDisplay
+{
+    DEC,
+    HEX
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct
+PacketField
+{
+    name: &'static str,
+    abbrev: &'static str,
+    field_type: FieldType,
+    display: FieldDisplay,
 }
 
 // Something that is displayable in the ui.
 pub trait DisplayItem
 {
+    fn get_field(&self) -> PacketField;
 }
+
 
 struct DisplayU8
 {
+    field: PacketField,
 }
-impl DisplayItem for DisplayU8 {}
+impl DisplayItem for DisplayU8
+{
+    fn get_field(&self) -> PacketField
+    {
+        return self.field;
+    }
+}
 
+// We know that wireshark will ensure only one thread accesses the disector, I think... make this static thing to
+// hold our dissector object.
+struct UnsafeDissectorHolder {
+    ptr: Box<dyn Dissector>
+}
+unsafe impl Sync for UnsafeDissectorHolder {}
+unsafe impl Send for UnsafeDissectorHolder {}
 
+static mut static_dissector : Option<UnsafeDissectorHolder> = None;
+
+pub fn setup(d : Box<dyn Dissector>)
+{
+    unsafe{
+        static_dissector = Some(UnsafeDissectorHolder{ptr: d});
+    }
+}
 
 
 
@@ -49,6 +97,8 @@ extern "C" fn dissect_hello(
     data: *mut libc::c_void,
 ) -> u32 {
     unsafe {
+        
+        static_dissector.as_mut().unwrap().ptr.foo();
         //~ println!("Dissector hello called!");
         //~ let proto_hello: i32 = -1;
         let proto_item = wireshark::proto_tree_add_protocol_format(
