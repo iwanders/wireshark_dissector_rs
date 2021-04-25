@@ -7,8 +7,9 @@ pub trait PacketDisplay
 // A trait for things that can dissect data.
 pub trait Dissector
 {
+    fn get_fields(self: &Self) -> Vec<PacketField>;
     fn dissect(self: &Self, display : &PacketDisplay /* something that we can pass display entities into */, bytes: &[u8]/* Something with bytes? */);
-    fn foo(self: &Self);
+    fn foo(self: &mut Self);
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -65,6 +66,7 @@ static mut static_dissector : Option<UnsafeDissectorHolder> = None;
 
 pub fn setup(d : Box<dyn Dissector>)
 {
+    // Assign the dissector to be called sequentially.
     unsafe{
         static_dissector = Some(UnsafeDissectorHolder{ptr: d});
     }
@@ -218,6 +220,7 @@ pub fn plugin_register_worker() {
         //~ let mut plug : wireshark::proto_plugin = Default::default();
         five.register_protoinfo = Some(proto_register_hello);
         five.register_handoff = Some(proto_reg_handoff_hello);
+        //~ five.register_handoff = Some(|| { proto_reg_handoff_hello() });
         wireshark::proto_register_plugin(Box::leak(five)); // This kinda sucks lol.
                                                            //~ wireshark::proto_register_plugin(&plug);
     }

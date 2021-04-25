@@ -14,17 +14,24 @@ mod dissector;
 
 struct MyDissector
 {
+    p : u32
 }
 
 impl dissector::Dissector for MyDissector
 {
+    fn get_fields(self: &Self) -> Vec<dissector::PacketField>
+    {
+        return Vec::new();
+    }
     fn dissect(self: &Self, display: &dissector::PacketDisplay, bytes: &[u8])
     {
         // do cool rust things, pass entities into the display.v
     }
-    fn foo(self: &Self)
+    fn foo(self: &mut Self)
     {
-        println!("yes, things.");
+        self.p = self.p + 1;
+        println!("{}  {:p}", self.p, &self, );
+        //~ println!("yes, things.");
     }
 }
 
@@ -35,6 +42,6 @@ pub fn plugin_register()
 {
     dissector::plugin_register_worker();
 
-    let z = Box::new(MyDissector{});
+    let z = Box::new(MyDissector{p: 0});
     dissector::setup(z);
 }
