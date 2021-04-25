@@ -40,7 +40,7 @@ impl dissector::Dissector for MyDissector {
         f.push(MyDissector::FIELD2);
         return f;
     }
-    fn dissect(self: &Self, _display: &dyn dissector::PacketDisplay, _bytes: &[u8]) {
+    fn dissect(self: &Self, _display: Box<dyn dissector::Dissection>) {
         // do cool rust things, pass entities into the display.
 
         //~ match p.parseU8(MyDissector::FIELD1)

@@ -1,7 +1,54 @@
 
 
-pub trait PacketDisplay {
-    fn display(self: &Self, item: dyn DisplayItem);
+pub trait Dissection {
+    //~ fn display(self: &mut Self, item: &dyn DisplayItem);
+    fn u8(self: &mut Self) -> u8;
+    fn display_u8(self: &mut Self, item: &dyn DisplayItem) -> u8;
+}
+
+
+
+#[derive(Debug, Copy, Clone)]
+struct DissectionTest
+{
+    pub pos: usize,
+}
+impl Dissection for DissectionTest
+{
+    //~ fn display(self: &mut Self, item: &dyn DisplayItem)
+    //~ {
+    //~ }
+
+    fn u8(self: &mut Self) -> u8
+    {
+        return self.pos as u8;
+    }
+
+    fn display_u8(self: &mut Self, item: &dyn DisplayItem) -> u8
+    {
+        println!("Displaying u8");
+        let val = self.pos as u8;
+        self.pos += 1;
+        return val;
+    }
+
+}
+
+
+#[test]
+fn it_works() {
+    let mut z : DissectionTest = DissectionTest{pos: 0};
+    let peeked_u8 = z.u8();
+    println!("Peeked {}", peeked_u8);
+
+    const FIELD1: PacketField = PacketField {
+        name: "protoname",
+        abbrev: "proto.main",
+        field_type: FieldType::PROTOCOL,
+        display: FieldDisplay::NONE,
+    };
+    z.display_u8(&field_to_display(FIELD1));
+    println!("Peeked {}", z.u8());
 }
 
 // A trait for things that can dissect data.
@@ -9,8 +56,7 @@ pub trait Dissector {
     fn get_fields(self: &Self) -> Vec<PacketField>;
     fn dissect(
         self: &Self,
-        display: &dyn PacketDisplay, /* something that we can pass display entities into */
-        bytes: &[u8],                /* Something with bytes? */
+        dissection: Box<dyn Dissection>,
     );
     fn foo(self: &mut Self);
 }
@@ -41,6 +87,33 @@ pub struct PacketField {
 pub trait DisplayItem {
     fn get_field(&self) -> PacketField;
 }
+
+pub struct DisplayItemField
+{
+    pub field: PacketField,
+}
+impl DisplayItem  for DisplayItemField{
+    fn get_field(self: &Self) -> PacketField
+    {
+        return self.field;
+    }
+}
+
+pub fn field_to_display(thing : PacketField) -> DisplayItemField
+{
+    DisplayItemField {
+        field : thing
+    }
+}
+
+//~ impl From<&PacketField> for DisplayItem {
+    //~ fn from(thing: &PacketField) -> DisplayItemField {
+        //~ DisplayItemField {
+            //~ field : thing
+        //~ }
+    //~ }
+//~ }
+
 
 struct DisplayU8 {
     field: PacketField,
