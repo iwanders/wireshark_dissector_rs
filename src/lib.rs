@@ -7,17 +7,15 @@ extern crate libc;
 #[macro_use]
 extern crate lazy_static;
 
-mod dissector;
-mod util;
-mod wireshark;
+pub mod dissector;
+pub mod util;
+pub mod wireshark;
 
 // Lift these to make it less verbose.
 type FieldType = dissector::FieldType;
 type FieldDisplay = dissector::FieldDisplay;
 
-struct MyDissector {
-    p: u32,
-}
+struct MyDissector {}
 impl MyDissector {
     const FIELD1: dissector::PacketField = dissector::PacketField {
         name: "protoname",
@@ -26,8 +24,14 @@ impl MyDissector {
         display: FieldDisplay::NONE,
     };
     const FIELD2: dissector::PacketField = dissector::PacketField {
-        name: "byte0name",
+        name: "first byte",
         abbrev: "proto.byte0",
+        field_type: FieldType::U8,
+        display: FieldDisplay::HEX,
+    };
+    const FIELD3: dissector::PacketField = dissector::PacketField {
+        name: "second byte",
+        abbrev: "proto.byte1",
         field_type: FieldType::U8,
         display: FieldDisplay::HEX,
     };
@@ -35,32 +39,35 @@ impl MyDissector {
 
 impl dissector::Dissector for MyDissector {
     fn get_fields(self: &Self) -> Vec<dissector::PacketField> {
+        println!("lib side get_fields");
         let mut f = Vec::new();
         f.push(MyDissector::FIELD1);
         f.push(MyDissector::FIELD2);
+        f.push(MyDissector::FIELD3);
         return f;
     }
-    fn dissect(self: &Self, _display: Box<dyn dissector::Dissection>) {
+
+    fn dissect(self: &Self, dissection: &mut dyn dissector::Dissection) {
+        dissection.display_u8(&dissector::field_to_display(MyDissector::FIELD1));
+        dissection.advance(5);
+        dissection.display_u8(&dissector::field_to_display(MyDissector::FIELD2));
+        dissection.display_u8(&dissector::field_to_display(MyDissector::FIELD3));
         // do cool rust things, pass entities into the display.
 
         //~ match p.parseU8(MyDissector::FIELD1)
         //~ {
-            //~ 0x20 => {
-                //~ // it's clearly a 'thing';
-                //~ p.parseU8(MyDissector::FIELD2)
-            //~ }
+        //~ 0x20 => {
+        //~ // it's clearly a 'thing';
+        //~ p.parseU8(MyDissector::FIELD2)
         //~ }
-    }
-    fn foo(self: &mut Self) {
-        self.p = self.p + 1;
-        //~ println!("{}  {:p}", self.p, &self, );
-        //~ println!("yes, things.");
+        //~ }
     }
 }
 
 // This function is the main entry point where we can do our setup.
 #[no_mangle]
 pub fn plugin_register() {
-    let z = Box::new(MyDissector { p: 0 });
+    use std::rc::Rc;
+    let z = Rc::new(MyDissector {});
     dissector::setup(z);
 }

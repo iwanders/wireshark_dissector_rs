@@ -1,43 +1,36 @@
 
-
+//-------------------------------------------------
+/// The object we interact with when perfoming a dissection, allows querying the data and visualising it.
 pub trait Dissection {
-    //~ fn display(self: &mut Self, item: &dyn DisplayItem);
-    fn u8(self: &mut Self) -> u8;
-    fn display_u8(self: &mut Self, item: &dyn DisplayItem) -> u8;
+    fn u8(self: &mut Self) -> u8; // peeks
+    fn display_u8(self: &mut Self, item: &dyn DisplayItem) -> u8; // displays and returns
+    fn advance(self: &mut Self, amount: usize);
 }
-
-
 
 #[derive(Debug, Copy, Clone)]
-struct DissectionTest
-{
+struct DissectionTest {
     pub pos: usize,
 }
-impl Dissection for DissectionTest
-{
-    //~ fn display(self: &mut Self, item: &dyn DisplayItem)
-    //~ {
-    //~ }
-
-    fn u8(self: &mut Self) -> u8
-    {
+impl Dissection for DissectionTest {
+    fn u8(self: &mut Self) -> u8 {
         return self.pos as u8;
     }
 
-    fn display_u8(self: &mut Self, item: &dyn DisplayItem) -> u8
-    {
+    fn display_u8(self: &mut Self, _item: &dyn DisplayItem) -> u8 {
         println!("Displaying u8");
         let val = self.pos as u8;
         self.pos += 1;
         return val;
     }
-
+    fn advance(self: &mut Self, amount: usize)
+    {
+        self.pos += amount;
+    }
 }
-
 
 #[test]
 fn it_works() {
-    let mut z : DissectionTest = DissectionTest{pos: 0};
+    let mut z: DissectionTest = DissectionTest { pos: 0 };
     let peeked_u8 = z.u8();
     println!("Peeked {}", peeked_u8);
 
@@ -51,15 +44,20 @@ fn it_works() {
     println!("Peeked {}", z.u8());
 }
 
-// A trait for things that can dissect data.
+//-------------------------------------------------
+
+
+/// The trait the dissector must adhere to.
 pub trait Dissector {
+
+    /// This function must return a vector of all the possible fields the dissector will end up using.
     fn get_fields(self: &Self) -> Vec<PacketField>;
-    fn dissect(
-        self: &Self,
-        dissection: Box<dyn Dissection>,
-    );
-    fn foo(self: &mut Self);
+
+    /// Called when there is somethign to dissect.
+    fn dissect(self: &Self, dissection: &mut dyn Dissection);
 }
+
+//-------------------------------------------------
 
 #[derive(Debug, Copy, Clone)]
 #[allow(dead_code)]
@@ -75,6 +73,7 @@ pub enum FieldDisplay {
     HEX,
 }
 
+/// Specification for a field that can be displayed.
 #[derive(Debug, Copy, Clone)]
 pub struct PacketField {
     pub name: &'static str,
@@ -83,77 +82,59 @@ pub struct PacketField {
     pub display: FieldDisplay,
 }
 
-// Something that is displayable in the ui.
+/// Something that is displayable in the ui, extra abstraction on top of PacketField atm, such that we can
+/// dynamically update the text or something later...
 pub trait DisplayItem {
     fn get_field(&self) -> PacketField;
 }
 
-pub struct DisplayItemField
-{
+/// Trivial implementation for a DisplayItem.
+pub struct DisplayItemField {
     pub field: PacketField,
 }
-impl DisplayItem  for DisplayItemField{
-    fn get_field(self: &Self) -> PacketField
-    {
+impl DisplayItem for DisplayItemField {
+    fn get_field(self: &Self) -> PacketField {
         return self.field;
     }
 }
-
-pub fn field_to_display(thing : PacketField) -> DisplayItemField
-{
-    DisplayItemField {
-        field : thing
-    }
+/// Function to convert a PacketField into a DisplayItemField
+pub fn field_to_display(thing: PacketField) -> DisplayItemField {
+    DisplayItemField { field: thing }
 }
 
-//~ impl From<&PacketField> for DisplayItem {
-    //~ fn from(thing: &PacketField) -> DisplayItemField {
-        //~ DisplayItemField {
-            //~ field : thing
-        //~ }
-    //~ }
-//~ }
-
-
-struct DisplayU8 {
-    field: PacketField,
-}
-impl DisplayItem for DisplayU8 {
-    fn get_field(&self) -> PacketField {
-        return self.field;
-    }
-}
-
+use std::rc::Rc;
 // We know that wireshark will ensure only one thread accesses the disector, I think... make this static thing to
 // hold our dissector object.
 struct UnsafeDissectorHolder {
-    ptr: Box<dyn Dissector>,
-
-
+    ptr: Rc<dyn Dissector>,
 
     // The things below are usually static members in wireshark plugins.
     proto_id: i32,
     field_ids: Vec<i32>,
-    fields: Vec<wireshark::hf_register_info>,
+    fields_input: Vec<PacketField>,
+    fields_wireshark: Vec<wireshark::hf_register_info>,
     plugin_handle: *mut wireshark::proto_plugin,
 }
 unsafe impl Sync for UnsafeDissectorHolder {}
 unsafe impl Send for UnsafeDissectorHolder {}
 impl UnsafeDissectorHolder {
-    fn new(ptr: Box<dyn Dissector>) -> Self {
+    fn new(ptr: Rc<dyn Dissector>) -> Self {
         UnsafeDissectorHolder {
             ptr: ptr,
             proto_id: -1,
+            fields_input: Vec::new(),
             field_ids: Vec::new(),
-            fields: Vec::new(),
+            fields_wireshark: Vec::new(),
             plugin_handle: 0 as *mut wireshark::proto_plugin,
         }
     }
 }
 
+// Our global static dissector struct to hold our state in the plugin.
 static mut STATIC_DISSECTOR: Option<UnsafeDissectorHolder> = None;
 
-pub fn setup(d: Box<dyn Dissector>) {
+/// Entry point to provide the dissector the the plugin.
+pub fn setup(d: Rc<dyn Dissector>) {
     // Assign the dissector to be called sequentially.
     unsafe {
         // Make our global state
@@ -165,7 +146,7 @@ pub fn setup(d: Box<dyn Dissector>) {
         let mut plugin_handle_box: Box<wireshark::proto_plugin> = Box::new(Default::default());
         plugin_handle_box.register_protoinfo = Some(proto_register_protoinfo);
         plugin_handle_box.register_handoff = Some(proto_register_handoff);
-        state.plugin_handle = Box::leak(plugin_handle_box);  // Need this to persist....
+        state.plugin_handle = Box::leak(plugin_handle_box); // Need this to persist....
         wireshark::proto_register_plugin(state.plugin_handle);
     }
 }
@@ -175,24 +156,95 @@ use crate::wireshark;
 
 // https://github.com/wireshark/wireshark/blob/master/epan/dissectors/packet-g723.c
 
+/// The implementation of Dissection that will interface with wireshark.
+struct EpanDissection {
+    // Wireshark stuff
+    pub tvb: *mut wireshark::tvbuff_t,
+    pub packet_info: *mut wireshark::packet_info,
+    pub tree: *mut wireshark::proto_tree,
+
+    // Our own stuff
+    pub pos: usize,
+    pub field_ids: Vec<i32>,
+    pub fields_input: Vec<PacketField>,
+}
+
+impl EpanDissection {
+    /// Helper to find the hf index this display item is associated with.
+    fn find_field(self: &Self, item: &dyn DisplayItem) -> i32 {
+        for i in 0..self.fields_input.len() {
+            if item.get_field().name == self.fields_input[i].name {
+                return self.field_ids[i];
+            }
+        }
+        // panic!?
+        return 0 as i32;
+    }
+}
+
+impl Dissection for EpanDissection {
+    fn u8(self: &mut Self) -> u8 {
+        // return u8 at current offset.
+        return 0 as u8;
+    }
+
+    fn display_u8(self: &mut Self, item: &dyn DisplayItem) -> u8 {
+        let field_id = self.find_field(item);
+        unsafe {
+            wireshark::proto_tree_add_item(
+                self.tree,
+                field_id,
+                self.tvb,
+                self.pos as i32,
+                1 as i32,
+                wireshark::Encoding::BIG_ENDIAN,
+            );
+        }
+        self.pos += 1;
+
+        return 0;
+    }
+    fn advance(self: &mut Self, amount: usize)
+    {
+        self.pos += amount;
+    }
+}
 
 extern "C" fn dissect_protocol_function(
     tvb: *mut wireshark::tvbuff_t,
-    _packet_info: *mut wireshark::packet_info,
+    packet_info: *mut wireshark::packet_info,
     tree: *mut wireshark::proto_tree,
     _data: *mut libc::c_void,
 ) -> u32 {
+    // Construct our dissection wrapper
+    let mut dissection: EpanDissection = EpanDissection {
+        tvb: tvb,
+        tree: tree,
+        packet_info: packet_info,
 
+        pos: 0,
+        fields_input: Vec::new(),
+        field_ids: Vec::new(),
+    };
 
+    let dissector: Option<Rc<dyn Dissector>>;
+
+    // Copy our dissector pointer
     unsafe {
-        let state = &mut STATIC_DISSECTOR.as_mut().unwrap(); // less wordy.
-                                                             //~ STATIC_DISSECTOR.as_mut().unwrap().ptr.foo();
-                                                             //~ println!("Dissector hello called!");
-                                                             //~ let proto_hello: i32 = -1;
+        let state = &mut STATIC_DISSECTOR.as_mut().unwrap();
+        dissector = Some(Rc::clone(&state.ptr));
+        dissection.fields_input = state.fields_input.clone();
+        dissection.field_ids = state.field_ids.clone();
+    }
+    // Let the dissector do its thing!
+    dissector.unwrap().dissect(&mut dissection);
 
+    /*
+    unsafe{
         // Raw bytes to slice:
         //std::slice::from_raw_parts_mut(buf.data, buf.len)
-
+        // *
+        let state = &mut STATIC_DISSECTOR.as_mut().unwrap();
         let _proto_item = wireshark::proto_tree_add_protocol_format(
             tree,
             state.field_ids[0],
@@ -210,9 +262,14 @@ extern "C" fn dissect_protocol_function(
             tvb,
             0,
             1,
-            wireshark::Encoding::STR_HEX,
+            wireshark::Encoding::BIG_ENDIAN,
         );
+        return wireshark::tvb_reported_length(tvb) as u32;
+    }
+        /**/
+    */
 
+    unsafe {
         return wireshark::tvb_reported_length(tvb) as u32;
     }
 }
@@ -234,13 +291,14 @@ extern "C" fn proto_register_protoinfo() {
 
         // ok, here we get to make our header fields array, and then we can pass that to wireshark.
         let fields = state.ptr.get_fields();
+        state.fields_input = state.ptr.get_fields();
         println!(
             "Registering {} fields in the protocol register.",
             fields.len()
         );
         state.field_ids.resize(fields.len(), -1);
         for i in 0..fields.len() {
-            state.fields.push(wireshark::hf_register_info {
+            state.fields_wireshark.push(wireshark::hf_register_info {
                 p_id: &mut state.field_ids[i] as *mut i32,
                 hfinfo: fields[i].into(),
             });
@@ -250,7 +308,7 @@ extern "C" fn proto_register_protoinfo() {
         println!("state.proto_id {:?}", state.proto_id);
         wireshark::register_postdissector(z);
 
-        let rawptr = &mut state.fields[0] as *mut wireshark::hf_register_info;
+        let rawptr = &mut state.fields_wireshark[0] as *mut wireshark::hf_register_info;
         wireshark::proto_register_field_array(proto_int, rawptr, fields.len() as i32);
     }
 }
@@ -259,9 +317,7 @@ extern "C" fn proto_register_handoff() {
     println!("proto_reg_handoff_hello");
 }
 
-
 #[no_mangle]
 static plugin_version: [libc::c_char; 4] = [50, 46, 54, 0]; // "2.6"
 #[no_mangle]
 static plugin_release: [libc::c_char; 4] = [50, 46, 54, 0]; // "2.6"
-
