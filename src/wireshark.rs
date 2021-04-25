@@ -18,8 +18,6 @@
 use crate::dissector;
 use crate::util;
 
-
-
 use bitflags::bitflags;
 bitflags! {
 #[repr(C)]
@@ -183,13 +181,13 @@ impl Default for header_field_info {
 impl From<dissector::PacketField> for header_field_info {
     fn from(field: dissector::PacketField) -> Self {
         //~ unsafe {
-            header_field_info {
-                name: util::perm_string_ptr(field.name),
-                abbrev: util::perm_string_ptr(field.abbrev),
-                type_: field.field_type.into(),
-                display: field.display.into(),
-                ..Default::default()
-            }
+        header_field_info {
+            name: util::perm_string_ptr(field.name),
+            abbrev: util::perm_string_ptr(field.abbrev),
+            type_: field.field_type.into(),
+            display: field.display.into(),
+            ..Default::default()
+        }
         //~ }
     }
 }
@@ -207,7 +205,6 @@ impl Default for hf_register_info {
         }
     }
 }
-
 
 #[link(name = "wireshark")]
 extern "C" {
@@ -241,8 +238,13 @@ extern "C" {
 
     pub fn create_dissector_handle(dissector: dissector_t, proto: i32) -> dissector_handle_t;
     pub fn register_postdissector(handle: dissector_handle_t);
-    pub fn g_print(string: *const libc::c_char);
 
     pub fn proto_register_field_array(parent: i32, hf: *mut hf_register_info, num_records: i32);
     pub fn proto_register_subtree_array();
+
+    // This is technically not from wireshark, it's from gtk.
+    //~ let cstr = CString::new("hello").unwrap();
+    //~ wireshark::g_print(cstr.as_ptr()); // Yas, we're in business!
+    pub fn g_print(string: *const libc::c_char);
+
 }

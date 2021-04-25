@@ -11,12 +11,13 @@ mod dissector;
 mod util;
 mod wireshark;
 
-struct MyDissector {
-    p: u32,
-}
 // Lift these to make it less verbose.
 type FieldType = dissector::FieldType;
 type FieldDisplay = dissector::FieldDisplay;
+
+struct MyDissector {
+    p: u32,
+}
 impl MyDissector {
     const FIELD1: dissector::PacketField = dissector::PacketField {
         name: "protoname",
@@ -41,6 +42,14 @@ impl dissector::Dissector for MyDissector {
     }
     fn dissect(self: &Self, _display: &dyn dissector::PacketDisplay, _bytes: &[u8]) {
         // do cool rust things, pass entities into the display.
+
+        //~ match p.parseU8(MyDissector::FIELD1)
+        //~ {
+            //~ 0x20 => {
+                //~ // it's clearly a 'thing';
+                //~ p.parseU8(MyDissector::FIELD2)
+            //~ }
+        //~ }
     }
     fn foo(self: &mut Self) {
         self.p = self.p + 1;
@@ -52,8 +61,6 @@ impl dissector::Dissector for MyDissector {
 // This function is the main entry point where we can do our setup.
 #[no_mangle]
 pub fn plugin_register() {
-    dissector::plugin_register_worker();
-
     let z = Box::new(MyDissector { p: 0 });
     dissector::setup(z);
 }

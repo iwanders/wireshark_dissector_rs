@@ -44,3 +44,21 @@ pub fn perm_string(input: &str) -> &CStr {
 pub fn perm_string_ptr(input: &str) -> *const c_char {
     return perm_string(input).as_ptr();
 }
+
+//https://stackoverflow.com/a/55323803
+use std::ptr;
+trait AsMutPtr<T> {
+    fn as_mut_ptr(&mut self) -> *mut T;
+}
+
+impl<'a, T> AsMutPtr<T> for Option<&'a mut T> {
+    fn as_mut_ptr(&mut self) -> *mut T {
+        match self {
+            Some(v) => *v,
+            None => {
+                println!("Its a nullptr :( ");
+                ptr::null_mut()
+            }
+        }
+    }
+}
