@@ -1,5 +1,5 @@
 pub trait PacketDisplay {
-    fn display(self: &Self, item: DisplayItem);
+    fn display(self: &Self, item: dyn DisplayItem);
 }
 
 // A trait for things that can dissect data.
@@ -7,18 +7,20 @@ pub trait Dissector {
     fn get_fields(self: &Self) -> Vec<PacketField>;
     fn dissect(
         self: &Self,
-        display: &PacketDisplay, /* something that we can pass display entities into */
+        display: &dyn PacketDisplay, /* something that we can pass display entities into */
         bytes: &[u8],            /* Something with bytes? */
     );
     fn foo(self: &mut Self);
 }
 
 #[derive(Debug, Copy, Clone)]
+#[allow(dead_code)]
 pub enum FieldType {
     PROTOCOL,
     U8,
 }
 #[derive(Debug, Copy, Clone)]
+#[allow(dead_code)]
 pub enum FieldDisplay {
     NONE,
     DEC,
@@ -66,12 +68,12 @@ impl UnsafeDissectorHolder {
     }
 }
 
-static mut static_dissector: Option<UnsafeDissectorHolder> = None;
+static mut STATIC_DISSECTOR: Option<UnsafeDissectorHolder> = None;
 
 pub fn setup(d: Box<dyn Dissector>) {
     // Assign the dissector to be called sequentially.
     unsafe {
-        static_dissector = Some(UnsafeDissectorHolder::new(d));
+        STATIC_DISSECTOR = Some(UnsafeDissectorHolder::new(d));
     }
 }
 
@@ -80,7 +82,6 @@ static plugin_version: [libc::c_char; 4] = [50, 46, 54, 0]; // "2.6"
 #[no_mangle]
 static plugin_release: [libc::c_char; 4] = [50, 46, 54, 0]; // "2.6"
 
-use std::ffi::CStr;
 use std::ffi::CString;
 // https://doc.rust-lang.org/std/ffi/struct.CStr.html
 
@@ -89,22 +90,23 @@ use crate::wireshark;
 
 // https://github.com/wireshark/wireshark/blob/master/epan/dissectors/packet-g723.c
 
-static mut proto_hello_hf: i32 = 0;
-static mut proto_hello_hf2: i32 = 0;
+//~ static mut PROTO_HELLO_HF: i32 = 0;
+//~ static mut proto_hello_hf2: i32 = 0;
 
 extern "C" fn dissect_hello(
     tvb: *mut wireshark::tvbuff_t,
-    packet_info: *mut wireshark::packet_info,
+    _packet_info: *mut wireshark::packet_info,
     tree: *mut wireshark::proto_tree,
-    data: *mut libc::c_void,
+    _data: *mut libc::c_void,
 ) -> u32 {
     unsafe {
-        static_dissector.as_mut().unwrap().ptr.foo();
+        let state = &mut STATIC_DISSECTOR.as_mut().unwrap(); // less wordy.
+        //~ STATIC_DISSECTOR.as_mut().unwrap().ptr.foo();
         //~ println!("Dissector hello called!");
         //~ let proto_hello: i32 = -1;
-        let proto_item = wireshark::proto_tree_add_protocol_format(
+        let _proto_item = wireshark::proto_tree_add_protocol_format(
             tree,
-            proto_hello_hf,
+            state.field_ids[0],
             tvb,
             0,
             0,
@@ -113,9 +115,9 @@ extern "C" fn dissect_hello(
             ),
             3,
         );
-        let thing = wireshark::proto_tree_add_item(
+        let _thing = wireshark::proto_tree_add_item(
             tree,
-            proto_hello_hf2,
+            state.field_ids[1],
             tvb,
             0,
             1,
@@ -124,7 +126,6 @@ extern "C" fn dissect_hello(
 
         return wireshark::tvb_reported_length(tvb) as u32;
     }
-    return 0;
 }
 
 //https://stackoverflow.com/a/55323803
@@ -150,7 +151,7 @@ extern "C" fn proto_register_hello() {
     let cstr = util::perm_string("hello");
 
     unsafe {
-        let state = &mut static_dissector.as_mut().unwrap(); // less wordy.
+        let state = &mut STATIC_DISSECTOR.as_mut().unwrap(); // less wordy.
 
         let proto_int = wireshark::proto_register_protocol(
             util::perm_string_ptr("The thingy"),
@@ -183,8 +184,8 @@ extern "C" fn proto_register_hello() {
         //~ println!("rawptr hello: {:?}", rawptr);
         //~ println!("hf[0].data.thing: {}", hf[0].data.is_some());
         wireshark::proto_register_field_array(proto_int, rawptr, 2);
-        proto_hello_hf = state.field_ids[0];
-        proto_hello_hf2 = state.field_ids[1];
+        //~ proto_hello_hf = state.field_ids[0];
+        //~ proto_hello_hf2 = state.field_ids[1];
     }
     //~ register_postdissector(handle_hello);
 }

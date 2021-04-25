@@ -18,13 +18,13 @@ struct MyDissector {
 type FieldType = dissector::FieldType;
 type FieldDisplay = dissector::FieldDisplay;
 impl MyDissector {
-    const field1: dissector::PacketField = dissector::PacketField {
+    const FIELD1: dissector::PacketField = dissector::PacketField {
         name: "protoname",
         abbrev: "proto.main",
         field_type: FieldType::PROTOCOL,
         display: FieldDisplay::NONE,
     };
-    const field2: dissector::PacketField = dissector::PacketField {
+    const FIELD2: dissector::PacketField = dissector::PacketField {
         name: "byte0name",
         abbrev: "proto.byte0",
         field_type: FieldType::U8,
@@ -35,11 +35,11 @@ impl MyDissector {
 impl dissector::Dissector for MyDissector {
     fn get_fields(self: &Self) -> Vec<dissector::PacketField> {
         let mut f = Vec::new();
-        f.push(MyDissector::field1);
-        f.push(MyDissector::field2);
+        f.push(MyDissector::FIELD1);
+        f.push(MyDissector::FIELD2);
         return f;
     }
-    fn dissect(self: &Self, display: &dissector::PacketDisplay, bytes: &[u8]) {
+    fn dissect(self: &Self, _display: &dyn dissector::PacketDisplay, _bytes: &[u8]) {
         // do cool rust things, pass entities into the display.
     }
     fn foo(self: &mut Self) {

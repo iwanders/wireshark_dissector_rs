@@ -12,8 +12,13 @@
 // THis seems useful?
 // https://stackoverflow.com/a/55323693
 
+#![allow(non_camel_case_types)]
+#![allow(dead_code)]
+
 use crate::dissector;
 use crate::util;
+
+
 
 use bitflags::bitflags;
 bitflags! {
@@ -77,7 +82,7 @@ pub struct tvbuff_t {
 pub struct packet_info {
     _private: [u8; 0],
 }
-type pinfo = packet_info;
+
 // Hmm, packet_info is enormous, but we have to reach into it for column info. Let skip that for now.
 
 #[repr(C)]
@@ -177,7 +182,7 @@ impl Default for header_field_info {
 
 impl From<dissector::PacketField> for header_field_info {
     fn from(field: dissector::PacketField) -> Self {
-        unsafe {
+        //~ unsafe {
             header_field_info {
                 name: util::perm_string_ptr(field.name),
                 abbrev: util::perm_string_ptr(field.abbrev),
@@ -185,7 +190,7 @@ impl From<dissector::PacketField> for header_field_info {
                 display: field.display.into(),
                 ..Default::default()
             }
-        }
+        //~ }
     }
 }
 
