@@ -13,14 +13,15 @@ pub trait Dissector
 }
 
 #[derive(Debug, Copy, Clone)]
-enum FieldType
+pub enum FieldType
 {
     PROTOCOL,
-    UINT8
+    U8
 }
 #[derive(Debug, Copy, Clone)]
-enum FieldDisplay
+pub enum FieldDisplay
 {
+    NONE,
     DEC,
     HEX
 }
@@ -29,10 +30,10 @@ enum FieldDisplay
 pub struct
 PacketField
 {
-    name: &'static str,
-    abbrev: &'static str,
-    field_type: FieldType,
-    display: FieldDisplay,
+    pub name: &'static str,
+    pub abbrev: &'static str,
+    pub field_type: FieldType,
+    pub display: FieldDisplay,
 }
 
 // Something that is displayable in the ui.
@@ -57,10 +58,21 @@ impl DisplayItem for DisplayU8
 // We know that wireshark will ensure only one thread accesses the disector, I think... make this static thing to
 // hold our dissector object.
 struct UnsafeDissectorHolder {
-    ptr: Box<dyn Dissector>
+    ptr: Box<dyn Dissector>,
+    field_ids : Vec<i32>,
+    fields : Vec<wireshark::hf_register_info>
 }
 unsafe impl Sync for UnsafeDissectorHolder {}
 unsafe impl Send for UnsafeDissectorHolder {}
+impl UnsafeDissectorHolder {
+    fn new(ptr : Box<dyn Dissector>) -> Self {
+        UnsafeDissectorHolder {
+            ptr: ptr,
+            field_ids: Vec::new(),
+            fields: Vec::new(),
+        }
+    }
+}
 
 static mut static_dissector : Option<UnsafeDissectorHolder> = None;
 
@@ -68,7 +80,7 @@ pub fn setup(d : Box<dyn Dissector>)
 {
     // Assign the dissector to be called sequentially.
     unsafe{
-        static_dissector = Some(UnsafeDissectorHolder{ptr: d});
+        static_dissector = Some(UnsafeDissectorHolder::new(d));
     }
 }
 
@@ -140,8 +152,51 @@ impl<'a, T> AsMutPtr<T> for Option<&'a mut T> {
 
 extern "C" fn proto_register_hello() {
     println!("proto_register_hello");
-    //~ let cstr = CString::new("hello").unwrap();
 
+    let cstr = util::perm_string("hello");
+
+
+    unsafe {
+        let state = &mut static_dissector.as_mut().unwrap(); // less wordy.
+
+        let proto_int = wireshark::proto_register_protocol(
+            util::perm_string_ptr("The thingy"),
+            cstr.as_ptr(),
+            cstr.as_ptr(),
+        );
+        println!("Proto proto_int: {:?}", proto_int);
+
+
+
+        // ok, here we get to make our header fields array, and then we can pass that to wireshark.
+        let fields = state.ptr.get_fields();
+        println!("Registering {} fields in the protocol register.", fields.len());
+        state.field_ids.resize(fields.len(), -1);
+        for i in 0..fields.len()
+        {
+            state.fields.push(wireshark::hf_register_info {p_id: &mut state.field_ids[i] as *mut i32,
+                              hfinfo: fields[i].into()});
+        }
+
+
+        let proto_hello: i32 = -1;
+        let z = wireshark::create_dissector_handle(Some(dissect_hello), proto_hello);
+        println!("Proto hello: {:?}", proto_hello);
+        wireshark::register_postdissector(z);
+        //~ let p = hf[0].data.map_or_else(ptr::null, |x| x);
+        //~ unsafe { ffi_call(p) }
+        let rawptr = &mut state.fields[0] as *mut wireshark::hf_register_info;
+        //~ println!("rawptr hello: {:?}", rawptr);
+        //~ println!("hf[0].data.thing: {}", hf[0].data.is_some());
+        wireshark::proto_register_field_array(proto_int, rawptr, 2);
+        proto_hello_hf = state.field_ids[0];
+        proto_hello_hf2 = state.field_ids[1];
+
+
+
+    }
+
+    /*
     static mut hf: [wireshark::ThreadUnSafeHeaderFieldRegisterInfoHolder; 2] =
         [wireshark::ThreadUnSafeHeaderFieldRegisterInfoHolder { data: None }, wireshark::ThreadUnSafeHeaderFieldRegisterInfoHolder { data: None }];
     static mut header_int: i32 = -1;
@@ -171,28 +226,9 @@ extern "C" fn proto_register_hello() {
             },
         });
     }
+    */
 
-    let cstr = util::perm_string("hello");
     unsafe {
-        let proto_int = wireshark::proto_register_protocol(
-            util::perm_string_ptr("The thingy"),
-            cstr.as_ptr(),
-            cstr.as_ptr(),
-        );
-        println!("Proto proto_int: {:?}", proto_int);
-
-        let proto_hello: i32 = -1;
-        let z = wireshark::create_dissector_handle(Some(dissect_hello), proto_hello);
-        println!("Proto hello: {:?}", proto_hello);
-        wireshark::register_postdissector(z);
-        //~ let p = hf[0].data.map_or_else(ptr::null, |x| x);
-        //~ unsafe { ffi_call(p) }
-        let rawptr = hf[0].data.as_mut().as_mut_ptr() as *mut wireshark::hf_register_info;
-        println!("rawptr hello: {:?}", rawptr);
-        println!("hf[0].data.thing: {}", hf[0].data.is_some());
-        wireshark::proto_register_field_array(proto_int, rawptr, 2);
-        proto_hello_hf = header_int;
-        proto_hello_hf2 = header_int2;
     }
     //~ register_postdissector(handle_hello);
 }

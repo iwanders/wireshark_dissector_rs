@@ -12,6 +12,9 @@
 // THis seems useful?
 // https://stackoverflow.com/a/55323693
 
+use crate::dissector;
+use crate::util;
+
 use bitflags::bitflags;
 bitflags! {
 #[repr(C)]
@@ -33,8 +36,19 @@ pub struct FieldDisplay: i32 {
     const BASE_HEX = 2;
     const BASE_OCT = 3;
 }
-
 }
+
+impl From<dissector::FieldDisplay> for FieldDisplay {
+    fn from(fieldtype: dissector::FieldDisplay) -> Self {
+        match fieldtype
+        {
+            NONE => FieldDisplay::BASE_NONE,
+            DEC => FieldDisplay::BASE_DEC,
+            HEX => FieldDisplay::BASE_HEX,
+        }
+    }
+}
+
 
 #[repr(C)]
 pub struct proto_plugin {
@@ -109,11 +123,25 @@ pub enum ftenum {
     UINT24,
     UINT32,
 }
+
+
 impl Default for ftenum {
     fn default() -> Self {
         ftenum::NONE
     }
 }
+
+impl From<dissector::FieldType> for ftenum {
+    fn from(fieldtype: dissector::FieldType) -> Self {
+        match fieldtype
+        {
+            PROTOCOL => ftenum::PROTOCOL,
+            U8 => ftenum::UINT8,
+        }
+    }
+}
+
+
 unsafe impl Send for ftenum {}
 
 #[repr(C)]
@@ -151,6 +179,19 @@ impl Default for header_field_info {
         }
     }
 }
+
+impl From<dissector::PacketField> for header_field_info {
+    fn from(field: dissector::PacketField) -> Self {
+        header_field_info{
+        name: util::perm_string_ptr(field.name),
+        abbrev: util::perm_string_ptr(field.abbrev),
+        type_: field.field_type.into(),
+        display: field.display.into(),
+        ..Default::default()
+        }
+    }
+}
+
 unsafe impl Send for header_field_info {}
 #[derive(Default)]
 

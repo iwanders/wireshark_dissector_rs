@@ -16,21 +16,28 @@ struct MyDissector
 {
     p : u32
 }
+impl MyDissector {
+    const field1 : dissector::PacketField = dissector::PacketField{name:"proto", abbrev:"proto.main", field_type: dissector::FieldType::PROTOCOL, display: dissector::FieldDisplay::NONE};
+    const field2 : dissector::PacketField = dissector::PacketField{name:"byte0", abbrev:"proto.byte0", field_type: dissector::FieldType::U8, display: dissector::FieldDisplay::HEX};
+}
 
 impl dissector::Dissector for MyDissector
 {
     fn get_fields(self: &Self) -> Vec<dissector::PacketField>
     {
-        return Vec::new();
+        let mut f = Vec::new();
+        f.push(MyDissector::field1);
+        f.push(MyDissector::field2);
+        return f;
     }
     fn dissect(self: &Self, display: &dissector::PacketDisplay, bytes: &[u8])
     {
-        // do cool rust things, pass entities into the display.v
+        // do cool rust things, pass entities into the display.
     }
     fn foo(self: &mut Self)
     {
         self.p = self.p + 1;
-        println!("{}  {:p}", self.p, &self, );
+        //~ println!("{}  {:p}", self.p, &self, );
         //~ println!("yes, things.");
     }
 }
