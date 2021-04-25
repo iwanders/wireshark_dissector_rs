@@ -3,6 +3,11 @@ Wireshark often expects const char* strings to exist indefinitely... So here we 
 Such that if we require the same string in various places, we don't end up leaking that string over and over.
 */
 
+// The following does this pretty egantly;
+// Can we do away with this string container now?
+// let field.name = "kdljfslkdf\0"
+// std::ffi::CStr::from_bytes_with_nul_unchecked(field.name.as_bytes()).as_ptr()
+
 use std::ffi::CStr;
 use std::ffi::CString;
 use std::os::raw::c_char;
@@ -35,6 +40,7 @@ pub fn perm_string(input: &str) -> &CStr {
     return perm_string(input);
 }
 
+#[allow(dead_code)]
 pub fn perm_string_ptr(input: &str) -> *const c_char {
     return perm_string(input).as_ptr();
 }

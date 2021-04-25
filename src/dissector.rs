@@ -1,35 +1,32 @@
-
-pub trait PacketDisplay
-{
+pub trait PacketDisplay {
     fn display(self: &Self, item: DisplayItem);
 }
 
 // A trait for things that can dissect data.
-pub trait Dissector
-{
+pub trait Dissector {
     fn get_fields(self: &Self) -> Vec<PacketField>;
-    fn dissect(self: &Self, display : &PacketDisplay /* something that we can pass display entities into */, bytes: &[u8]/* Something with bytes? */);
+    fn dissect(
+        self: &Self,
+        display: &PacketDisplay, /* something that we can pass display entities into */
+        bytes: &[u8],            /* Something with bytes? */
+    );
     fn foo(self: &mut Self);
 }
 
 #[derive(Debug, Copy, Clone)]
-pub enum FieldType
-{
+pub enum FieldType {
     PROTOCOL,
-    U8
+    U8,
 }
 #[derive(Debug, Copy, Clone)]
-pub enum FieldDisplay
-{
+pub enum FieldDisplay {
     NONE,
     DEC,
-    HEX
+    HEX,
 }
 
 #[derive(Debug, Copy, Clone)]
-pub struct
-PacketField
-{
+pub struct PacketField {
     pub name: &'static str,
     pub abbrev: &'static str,
     pub field_type: FieldType,
@@ -37,20 +34,15 @@ PacketField
 }
 
 // Something that is displayable in the ui.
-pub trait DisplayItem
-{
+pub trait DisplayItem {
     fn get_field(&self) -> PacketField;
 }
 
-
-struct DisplayU8
-{
+struct DisplayU8 {
     field: PacketField,
 }
-impl DisplayItem for DisplayU8
-{
-    fn get_field(&self) -> PacketField
-    {
+impl DisplayItem for DisplayU8 {
+    fn get_field(&self) -> PacketField {
         return self.field;
     }
 }
@@ -59,13 +51,13 @@ impl DisplayItem for DisplayU8
 // hold our dissector object.
 struct UnsafeDissectorHolder {
     ptr: Box<dyn Dissector>,
-    field_ids : Vec<i32>,
-    fields : Vec<wireshark::hf_register_info>
+    field_ids: Vec<i32>,
+    fields: Vec<wireshark::hf_register_info>,
 }
 unsafe impl Sync for UnsafeDissectorHolder {}
 unsafe impl Send for UnsafeDissectorHolder {}
 impl UnsafeDissectorHolder {
-    fn new(ptr : Box<dyn Dissector>) -> Self {
+    fn new(ptr: Box<dyn Dissector>) -> Self {
         UnsafeDissectorHolder {
             ptr: ptr,
             field_ids: Vec::new(),
@@ -74,23 +66,19 @@ impl UnsafeDissectorHolder {
     }
 }
 
-static mut static_dissector : Option<UnsafeDissectorHolder> = None;
+static mut static_dissector: Option<UnsafeDissectorHolder> = None;
 
-pub fn setup(d : Box<dyn Dissector>)
-{
+pub fn setup(d: Box<dyn Dissector>) {
     // Assign the dissector to be called sequentially.
-    unsafe{
+    unsafe {
         static_dissector = Some(UnsafeDissectorHolder::new(d));
     }
 }
-
-
 
 #[no_mangle]
 static plugin_version: [libc::c_char; 4] = [50, 46, 54, 0]; // "2.6"
 #[no_mangle]
 static plugin_release: [libc::c_char; 4] = [50, 46, 54, 0]; // "2.6"
-
 
 use std::ffi::CStr;
 use std::ffi::CString;
@@ -111,7 +99,6 @@ extern "C" fn dissect_hello(
     data: *mut libc::c_void,
 ) -> u32 {
     unsafe {
-        
         static_dissector.as_mut().unwrap().ptr.foo();
         //~ println!("Dissector hello called!");
         //~ let proto_hello: i32 = -1;
@@ -126,7 +113,14 @@ extern "C" fn dissect_hello(
             ),
             3,
         );
-        let thing = wireshark::proto_tree_add_item(tree, proto_hello_hf2, tvb, 0, 1, wireshark::Encoding::STR_HEX);
+        let thing = wireshark::proto_tree_add_item(
+            tree,
+            proto_hello_hf2,
+            tvb,
+            0,
+            1,
+            wireshark::Encoding::STR_HEX,
+        );
 
         return wireshark::tvb_reported_length(tvb) as u32;
     }
@@ -155,7 +149,6 @@ extern "C" fn proto_register_hello() {
 
     let cstr = util::perm_string("hello");
 
-
     unsafe {
         let state = &mut static_dissector.as_mut().unwrap(); // less wordy.
 
@@ -166,18 +159,19 @@ extern "C" fn proto_register_hello() {
         );
         println!("Proto proto_int: {:?}", proto_int);
 
-
-
         // ok, here we get to make our header fields array, and then we can pass that to wireshark.
         let fields = state.ptr.get_fields();
-        println!("Registering {} fields in the protocol register.", fields.len());
+        println!(
+            "Registering {} fields in the protocol register.",
+            fields.len()
+        );
         state.field_ids.resize(fields.len(), -1);
-        for i in 0..fields.len()
-        {
-            state.fields.push(wireshark::hf_register_info {p_id: &mut state.field_ids[i] as *mut i32,
-                              hfinfo: fields[i].into()});
+        for i in 0..fields.len() {
+            state.fields.push(wireshark::hf_register_info {
+                p_id: &mut state.field_ids[i] as *mut i32,
+                hfinfo: fields[i].into(),
+            });
         }
-
 
         let proto_hello: i32 = -1;
         let z = wireshark::create_dissector_handle(Some(dissect_hello), proto_hello);
@@ -191,44 +185,6 @@ extern "C" fn proto_register_hello() {
         wireshark::proto_register_field_array(proto_int, rawptr, 2);
         proto_hello_hf = state.field_ids[0];
         proto_hello_hf2 = state.field_ids[1];
-
-
-
-    }
-
-    /*
-    static mut hf: [wireshark::ThreadUnSafeHeaderFieldRegisterInfoHolder; 2] =
-        [wireshark::ThreadUnSafeHeaderFieldRegisterInfoHolder { data: None }, wireshark::ThreadUnSafeHeaderFieldRegisterInfoHolder { data: None }];
-    static mut header_int: i32 = -1;
-    static mut header_int2: i32 = -1;
-    unsafe {
-        hf[0].data = Some(wireshark::hf_register_info {
-            p_id: &mut header_int as *mut i32,
-            hfinfo: {
-                wireshark::header_field_info {
-                    name: util::perm_string_ptr("KSDJFLSDJ"),
-                    abbrev: util::perm_string_ptr("thign.type"),
-                    type_: wireshark::ftenum::PROTOCOL,
-                    ..Default::default()
-                }
-            },
-        });
-        hf[1].data = Some(wireshark::hf_register_info {
-            p_id: &mut header_int2 as *mut i32,
-            hfinfo: {
-                wireshark::header_field_info {
-                    name: util::perm_string_ptr("thing_two"),
-                    abbrev: util::perm_string_ptr("dsfsdf.type"),
-                    type_: wireshark::ftenum::UINT8,
-                    display: wireshark::FieldDisplay::BASE_HEX,
-                    ..Default::default()
-                }
-            },
-        });
-    }
-    */
-
-    unsafe {
     }
     //~ register_postdissector(handle_hello);
 }
@@ -244,7 +200,6 @@ use std::ptr;
 
 #[no_mangle]
 pub fn plugin_register_worker() {
-
     //~ println!("Size of my new bitmask: {}",  std::mem::size_of::<wireshark::Encoding>());
 
     println!("plugin_register");
@@ -261,5 +216,3 @@ pub fn plugin_register_worker() {
                                                            //~ wireshark::proto_register_plugin(&plug);
     }
 }
-
-

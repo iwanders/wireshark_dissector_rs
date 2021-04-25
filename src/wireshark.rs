@@ -40,15 +40,13 @@ pub struct FieldDisplay: i32 {
 
 impl From<dissector::FieldDisplay> for FieldDisplay {
     fn from(fieldtype: dissector::FieldDisplay) -> Self {
-        match fieldtype
-        {
-            NONE => FieldDisplay::BASE_NONE,
-            DEC => FieldDisplay::BASE_DEC,
-            HEX => FieldDisplay::BASE_HEX,
+        match fieldtype {
+            dissector::FieldDisplay::NONE => FieldDisplay::BASE_NONE,
+            dissector::FieldDisplay::DEC => FieldDisplay::BASE_DEC,
+            dissector::FieldDisplay::HEX => FieldDisplay::BASE_HEX,
         }
     }
 }
-
 
 #[repr(C)]
 pub struct proto_plugin {
@@ -124,7 +122,6 @@ pub enum ftenum {
     UINT32,
 }
 
-
 impl Default for ftenum {
     fn default() -> Self {
         ftenum::NONE
@@ -133,14 +130,12 @@ impl Default for ftenum {
 
 impl From<dissector::FieldType> for ftenum {
     fn from(fieldtype: dissector::FieldType) -> Self {
-        match fieldtype
-        {
-            PROTOCOL => ftenum::PROTOCOL,
-            U8 => ftenum::UINT8,
+        match fieldtype {
+            dissector::FieldType::PROTOCOL => ftenum::PROTOCOL,
+            dissector::FieldType::U8 => ftenum::UINT8,
         }
     }
 }
-
 
 unsafe impl Send for ftenum {}
 
@@ -182,24 +177,17 @@ impl Default for header_field_info {
 
 impl From<dissector::PacketField> for header_field_info {
     fn from(field: dissector::PacketField) -> Self {
-        header_field_info{
-        name: util::perm_string_ptr(field.name),
-        abbrev: util::perm_string_ptr(field.abbrev),
-        type_: field.field_type.into(),
-        display: field.display.into(),
-        ..Default::default()
+        unsafe {
+            header_field_info {
+                name: util::perm_string_ptr(field.name),
+                abbrev: util::perm_string_ptr(field.abbrev),
+                type_: field.field_type.into(),
+                display: field.display.into(),
+                ..Default::default()
+            }
         }
     }
 }
-
-unsafe impl Send for header_field_info {}
-#[derive(Default)]
-
-pub struct ThreadUnSafeHeaderFieldInfoHolder {
-    pub data: Option<header_field_info>,
-}
-unsafe impl Sync for ThreadUnSafeHeaderFieldInfoHolder {}
-unsafe impl Send for ThreadUnSafeHeaderFieldInfoHolder {}
 
 #[repr(C)]
 pub struct hf_register_info {
@@ -214,13 +202,7 @@ impl Default for hf_register_info {
         }
     }
 }
-unsafe impl Send for hf_register_info {}
 
-pub struct ThreadUnSafeHeaderFieldRegisterInfoHolder {
-    pub data: Option<hf_register_info>,
-}
-unsafe impl Sync for ThreadUnSafeHeaderFieldRegisterInfoHolder {}
-unsafe impl Send for ThreadUnSafeHeaderFieldRegisterInfoHolder {}
 
 #[link(name = "wireshark")]
 extern "C" {
