@@ -21,19 +21,19 @@ impl MyDissector {
         name: "protoname",
         abbrev: "proto.main",
         field_type: FieldType::PROTOCOL,
-        display: FieldDisplay::NONE,
+        display: FieldDisplay::BASE_NONE,
     };
     const FIELD2: dissector::PacketField = dissector::PacketField {
         name: "first byte",
         abbrev: "proto.byte0",
-        field_type: FieldType::U8,
-        display: FieldDisplay::HEX,
+        field_type: FieldType::UINT8,
+        display: FieldDisplay::BASE_HEX,
     };
     const FIELD3: dissector::PacketField = dissector::PacketField {
         name: "second byte",
         abbrev: "proto.byte1",
-        field_type: FieldType::U8,
-        display: FieldDisplay::HEX,
+        field_type: FieldType::UINT16,
+        display: FieldDisplay::BASE_HEX,
     };
 }
 
@@ -48,10 +48,10 @@ impl dissector::Dissector for MyDissector {
     }
 
     fn dissect(self: &Self, dissection: &mut dyn dissector::Dissection) {
-        dissection.display_u8(&dissector::field_to_display(MyDissector::FIELD1));
+        dissection.dissect_u8(&MyDissector::FIELD1.display());
         dissection.advance(5);
-        dissection.display_u8(&dissector::field_to_display(MyDissector::FIELD2));
-        dissection.display_u8(&dissector::field_to_display(MyDissector::FIELD3));
+        dissection.dissect(&MyDissector::FIELD2.display());
+        dissection.dissect(&MyDissector::FIELD3.display());
         // do cool rust things, pass entities into the display.
 
         //~ match p.parseU8(MyDissector::FIELD1)

@@ -2,9 +2,25 @@
 //-------------------------------------------------
 /// The object we interact with when perfoming a dissection, allows querying the data and visualising it.
 pub trait Dissection {
-    fn u8(self: &mut Self) -> u8; // peeks
-    fn display_u8(self: &mut Self, item: &dyn DisplayItem) -> u8; // displays and returns
+    // peeks
+    fn peek_u8(self: &mut Self) -> u8;
+
+    // Manual advance
     fn advance(self: &mut Self, amount: usize);
+
+    // Adds display and advanced by this amount.
+    fn dissect_u8(self: &mut Self, item: &dyn DisplayItem) -> u8;
+    fn dissect_u16(self: &mut Self, item: &dyn DisplayItem) -> u16;
+
+    fn dissect(self: &mut Self, item: &dyn DisplayItem)
+    {
+        match item.get_field().field_type
+        {
+            FieldType::UINT8 => {self.dissect_u8(item);},
+            FieldType::UINT16 => {self.dissect_u16(item);}
+            _ => {}
+        }
+    }
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -12,13 +28,19 @@ struct DissectionTest {
     pub pos: usize,
 }
 impl Dissection for DissectionTest {
-    fn u8(self: &mut Self) -> u8 {
+    fn peek_u8(self: &mut Self) -> u8 {
         return self.pos as u8;
     }
 
-    fn display_u8(self: &mut Self, _item: &dyn DisplayItem) -> u8 {
+    fn dissect_u8(self: &mut Self, _item: &dyn DisplayItem) -> u8 {
         println!("Displaying u8");
         let val = self.pos as u8;
+        self.pos += 1;
+        return val;
+    }
+    fn dissect_u16(self: &mut Self, _item: &dyn DisplayItem) -> u16 {
+        println!("Displaying u16");
+        let val = self.pos as u16;
         self.pos += 1;
         return val;
     }
@@ -31,7 +53,7 @@ impl Dissection for DissectionTest {
 #[test]
 fn it_works() {
     let mut z: DissectionTest = DissectionTest { pos: 0 };
-    let peeked_u8 = z.u8();
+    let peeked_u8 = z.peek_u8();
     println!("Peeked {}", peeked_u8);
 
     const FIELD1: PacketField = PacketField {
@@ -40,8 +62,8 @@ fn it_works() {
         field_type: FieldType::PROTOCOL,
         display: FieldDisplay::NONE,
     };
-    z.display_u8(&field_to_display(FIELD1));
-    println!("Peeked {}", z.u8());
+    z.dissect_u8(&field_to_display(FIELD1));
+    println!("Peeked {}", z.peek_u8());
 }
 
 //-------------------------------------------------
@@ -57,37 +79,6 @@ pub trait Dissector {
     fn dissect(self: &Self, dissection: &mut dyn Dissection);
 }
 
-//-------------------------------------------------
-
-#[derive(Debug, Copy, Clone)]
-#[allow(dead_code)]
-pub enum FieldType {
-    PROTOCOL,
-    U8,
-}
-#[derive(Debug, Copy, Clone)]
-#[allow(dead_code)]
-pub enum FieldDisplay {
-    NONE,
-    DEC,
-    HEX,
-}
-
-/// Specification for a field that can be displayed.
-#[derive(Debug, Copy, Clone)]
-pub struct PacketField {
-    pub name: &'static str,
-    pub abbrev: &'static str,
-    pub field_type: FieldType,
-    pub display: FieldDisplay,
-}
-
-/// Something that is displayable in the ui, extra abstraction on top of PacketField atm, such that we can
-/// dynamically update the text or something later...
-pub trait DisplayItem {
-    fn get_field(&self) -> PacketField;
-}
-
 /// Trivial implementation for a DisplayItem.
 pub struct DisplayItemField {
     pub field: PacketField,
@@ -99,8 +90,37 @@ impl DisplayItem for DisplayItemField {
 }
 /// Function to convert a PacketField into a DisplayItemField
 pub fn field_to_display(thing: PacketField) -> DisplayItemField {
-    DisplayItemField { field: thing }
+    return DisplayItemField { field: thing };
 }
+
+
+
+//-------------------------------------------------
+pub type FieldType = wireshark::ftenum;
+pub type FieldDisplay = wireshark::FieldDisplay;
+
+/// Specification for a field that can be displayed.
+#[derive(Debug, Copy, Clone)]
+pub struct PacketField {
+    pub name: &'static str,
+    pub abbrev: &'static str,
+    pub field_type: FieldType,
+    pub display: FieldDisplay,
+}
+impl PacketField {
+    pub fn display(self: &Self) -> DisplayItemField {
+        DisplayItemField { field: *self }
+    }
+}
+
+
+/// Something that is displayable in the ui, extra abstraction on top of PacketField atm, such that we can
+/// dynamically update the text or something later...
+pub trait DisplayItem {
+    fn get_field(&self) -> PacketField;
+}
+
+
 
 use std::rc::Rc;
 // We know that wireshark will ensure only one thread accesses the disector, I think... make this static thing to
@@ -180,15 +200,12 @@ impl EpanDissection {
         // panic!?
         return 0 as i32;
     }
+
 }
 
-impl Dissection for EpanDissection {
-    fn u8(self: &mut Self) -> u8 {
-        // return u8 at current offset.
-        return 0 as u8;
-    }
-
-    fn display_u8(self: &mut Self, item: &dyn DisplayItem) -> u8 {
+impl EpanDissection {
+    fn dissect_u(self: &mut Self, item: &dyn DisplayItem, size: usize) -> u64
+    {
         let field_id = self.find_field(item);
         unsafe {
             wireshark::proto_tree_add_item(
@@ -196,14 +213,30 @@ impl Dissection for EpanDissection {
                 field_id,
                 self.tvb,
                 self.pos as i32,
-                1 as i32,
+                size as i32,
                 wireshark::Encoding::BIG_ENDIAN,
             );
         }
-        self.pos += 1;
-
+        self.pos += size;
         return 0;
     }
+}
+
+
+impl Dissection for EpanDissection {
+    fn peek_u8(self: &mut Self) -> u8 {
+        return 0 as u8;
+    }
+
+    
+    fn dissect_u8(self: &mut Self, item: &dyn DisplayItem) -> u8 {
+        self.dissect_u(item, std::mem::size_of::<u8>()) as u8
+    }
+
+    fn dissect_u16(self: &mut Self, item: &dyn DisplayItem) -> u16 {
+        self.dissect_u(item, std::mem::size_of::<u16>()) as u16
+    }
+
     fn advance(self: &mut Self, amount: usize)
     {
         self.pos += amount;
@@ -238,36 +271,6 @@ extern "C" fn dissect_protocol_function(
     }
     // Let the dissector do its thing!
     dissector.unwrap().dissect(&mut dissection);
-
-    /*
-    unsafe{
-        // Raw bytes to slice:
-        //std::slice::from_raw_parts_mut(buf.data, buf.len)
-        // *
-        let state = &mut STATIC_DISSECTOR.as_mut().unwrap();
-        let _proto_item = wireshark::proto_tree_add_protocol_format(
-            tree,
-            state.field_ids[0],
-            tvb,
-            0,
-            0,
-            util::perm_string_ptr(
-                "This is Hello version, a Wireshark postdissector plugin %d prototype",
-            ),
-            3,
-        );
-        let _thing = wireshark::proto_tree_add_item(
-            tree,
-            state.field_ids[1],
-            tvb,
-            0,
-            1,
-            wireshark::Encoding::BIG_ENDIAN,
-        );
-        return wireshark::tvb_reported_length(tvb) as u32;
-    }
-        /**/
-    */
 
     unsafe {
         return wireshark::tvb_reported_length(tvb) as u32;

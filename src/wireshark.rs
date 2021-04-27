@@ -41,16 +41,6 @@ pub struct FieldDisplay: i32 {
 }
 }
 
-impl From<dissector::FieldDisplay> for FieldDisplay {
-    fn from(fieldtype: dissector::FieldDisplay) -> Self {
-        match fieldtype {
-            dissector::FieldDisplay::NONE => FieldDisplay::BASE_NONE,
-            dissector::FieldDisplay::DEC => FieldDisplay::BASE_DEC,
-            dissector::FieldDisplay::HEX => FieldDisplay::BASE_HEX,
-        }
-    }
-}
-
 #[repr(C)]
 pub struct proto_plugin {
     pub register_protoinfo: Option<extern "C" fn()>, /* routine to call to register protocol information */
@@ -114,6 +104,7 @@ unsafe impl Send for hf_ref_type {}
 
 #[repr(C)]
 #[allow(dead_code)]
+#[derive(Copy, Clone, Debug)]
 pub enum ftenum {
     NONE,
     PROTOCOL,
@@ -128,15 +119,6 @@ pub enum ftenum {
 impl Default for ftenum {
     fn default() -> Self {
         ftenum::NONE
-    }
-}
-
-impl From<dissector::FieldType> for ftenum {
-    fn from(fieldtype: dissector::FieldType) -> Self {
-        match fieldtype {
-            dissector::FieldType::PROTOCOL => ftenum::PROTOCOL,
-            dissector::FieldType::U8 => ftenum::UINT8,
-        }
     }
 }
 
