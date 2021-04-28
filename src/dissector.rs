@@ -9,62 +9,37 @@ pub trait Dissection {
     fn advance(self: &mut Self, amount: usize);
 
     // Adds display and advanced by this amount.
+    fn dissect_i8(self: &mut Self, item: &dyn DisplayItem) -> i8;
+    fn dissect_i16(self: &mut Self, item: &dyn DisplayItem) -> i16;
+    fn dissect_i32(self: &mut Self, item: &dyn DisplayItem) -> i32;
+
     fn dissect_u8(self: &mut Self, item: &dyn DisplayItem) -> u8;
     fn dissect_u16(self: &mut Self, item: &dyn DisplayItem) -> u16;
+    fn dissect_u32(self: &mut Self, item: &dyn DisplayItem) -> u32;
+    fn dissect_u64(self: &mut Self, item: &dyn DisplayItem) -> u64;
 
+    fn dissect_proto(self: &mut Self, item: &dyn DisplayItem);
+
+    // Disect based on the input display item.
     fn dissect(self: &mut Self, item: &dyn DisplayItem)
     {
         match item.get_field().field_type
         {
+            FieldType::PROTOCOL => {self.dissect_proto(item);},
+
+            FieldType::INT8 => {self.dissect_i8(item);}
+            FieldType::INT16 => {self.dissect_i16(item);}
+            FieldType::INT32 => {self.dissect_i32(item);}
+
             FieldType::UINT8 => {self.dissect_u8(item);},
             FieldType::UINT16 => {self.dissect_u16(item);}
+            FieldType::UINT32 => {self.dissect_u32(item);}
+            FieldType::UINT64 => {self.dissect_u64(item);}
             _ => {}
         }
     }
 }
 
-#[derive(Debug, Copy, Clone)]
-struct DissectionTest {
-    pub pos: usize,
-}
-impl Dissection for DissectionTest {
-    fn peek_u8(self: &mut Self) -> u8 {
-        return self.pos as u8;
-    }
-
-    fn dissect_u8(self: &mut Self, _item: &dyn DisplayItem) -> u8 {
-        println!("Displaying u8");
-        let val = self.pos as u8;
-        self.pos += 1;
-        return val;
-    }
-    fn dissect_u16(self: &mut Self, _item: &dyn DisplayItem) -> u16 {
-        println!("Displaying u16");
-        let val = self.pos as u16;
-        self.pos += 1;
-        return val;
-    }
-    fn advance(self: &mut Self, amount: usize)
-    {
-        self.pos += amount;
-    }
-}
-
-#[test]
-fn it_works() {
-    let mut z: DissectionTest = DissectionTest { pos: 0 };
-    let peeked_u8 = z.peek_u8();
-    println!("Peeked {}", peeked_u8);
-
-    const FIELD1: PacketField = PacketField {
-        name: "protoname",
-        abbrev: "proto.main",
-        field_type: FieldType::PROTOCOL,
-        display: FieldDisplay::NONE,
-    };
-    z.dissect_u8(&field_to_display(FIELD1));
-    println!("Peeked {}", z.peek_u8());
-}
 
 //-------------------------------------------------
 
@@ -204,37 +179,104 @@ impl EpanDissection {
 }
 
 impl EpanDissection {
-    fn dissect_u(self: &mut Self, item: &dyn DisplayItem, size: usize) -> u64
+    fn dissect_u32(self: &mut Self, item: &dyn DisplayItem, size: usize) -> u32
     {
         let field_id = self.find_field(item);
+        let mut retval : u32 = 0;
         unsafe {
-            wireshark::proto_tree_add_item(
+            wireshark::proto_tree_add_item_ret_uint(
                 self.tree,
                 field_id,
                 self.tvb,
                 self.pos as i32,
                 size as i32,
                 wireshark::Encoding::BIG_ENDIAN,
+                &mut retval as *mut u32
             );
         }
         self.pos += size;
-        return 0;
+        return retval
+    }
+    fn dissect_u64(self: &mut Self, item: &dyn DisplayItem, size: usize) -> u64
+    {
+        let field_id = self.find_field(item);
+        let mut retval : u64 = 0;
+        unsafe {
+            wireshark::proto_tree_add_item_ret_uint64(
+                self.tree,
+                field_id,
+                self.tvb,
+                self.pos as i32,
+                size as i32,
+                wireshark::Encoding::BIG_ENDIAN,
+                &mut retval as *mut u64
+            );
+        }
+        self.pos += size;
+        return retval
+    }
+
+    fn dissect_i32(self: &mut Self, item: &dyn DisplayItem, size: usize) -> i32
+    {
+        let field_id = self.find_field(item);
+        let mut retval : i32 = 0;
+        unsafe {
+            wireshark::proto_tree_add_item_ret_int(
+                self.tree,
+                field_id,
+                self.tvb,
+                self.pos as i32,
+                size as i32,
+                wireshark::Encoding::BIG_ENDIAN,
+                &mut retval as *mut i32
+            );
+        }
+        self.pos += size;
+        return retval
     }
 }
 
 
 impl Dissection for EpanDissection {
+
+    fn dissect_proto(self : &mut Self, item: &dyn DisplayItem)
+    {
+        let field_id = self.find_field(item);
+        unsafe {
+            wireshark::proto_tree_add_item(self.tree, field_id, self.tvb, self.pos as i32, 0 as i32,wireshark::Encoding::BIG_ENDIAN);
+        }
+        self.pos += 0;
+    }
     fn peek_u8(self: &mut Self) -> u8 {
         return 0 as u8;
     }
 
     
+    fn dissect_i8(self: &mut Self, item: &dyn DisplayItem) -> i8 {
+        self.dissect_i32(item, std::mem::size_of::<i8>()) as i8
+    }
+
+    fn dissect_i16(self: &mut Self, item: &dyn DisplayItem) -> i16 {
+        self.dissect_i32(item, std::mem::size_of::<i16>()) as i16
+    }
+    fn dissect_i32(self: &mut Self, item: &dyn DisplayItem) -> i32 {
+        self.dissect_i32(item, std::mem::size_of::<i32>()) as i32
+    }
+
     fn dissect_u8(self: &mut Self, item: &dyn DisplayItem) -> u8 {
-        self.dissect_u(item, std::mem::size_of::<u8>()) as u8
+        self.dissect_u32(item, std::mem::size_of::<u8>()) as u8
     }
 
     fn dissect_u16(self: &mut Self, item: &dyn DisplayItem) -> u16 {
-        self.dissect_u(item, std::mem::size_of::<u16>()) as u16
+        self.dissect_u32(item, std::mem::size_of::<u16>()) as u16
+    }
+
+    fn dissect_u32(self: &mut Self, item: &dyn DisplayItem) -> u32 {
+        self.dissect_u32(item, std::mem::size_of::<u32>()) as u32
+    }
+
+    fn dissect_u64(self: &mut Self, item: &dyn DisplayItem) -> u64 {
+        self.dissect_u64(item, std::mem::size_of::<u64>()) as u64
     }
 
     fn advance(self: &mut Self, amount: usize)
