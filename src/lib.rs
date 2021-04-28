@@ -62,12 +62,12 @@ impl dissector::Dissector for MyDissector {
     }
 
     fn dissect(self: &Self, dissection: &mut dyn dissector::Dissection) {
-        dissection.dissect(&MyDissector::FIELD1.display());
+        dissection.dissect(&MyDissector::FIELD1.name);
         dissection.advance(5);
-        dissection.dissect(&MyDissector::FIELD2.display());
-        dissection.dissect(&MyDissector::FIELD3.display());
-        dissection.dissect(&MyDissector::FIELD32.display());
-        dissection.dissect(&MyDissector::FIELD64.display());
+        dissection.dissect(&MyDissector::FIELD2.name);
+        dissection.dissect(&MyDissector::FIELD3.name);
+        dissection.dissect(&MyDissector::FIELD32.name);
+        dissection.dissect(&MyDissector::FIELD64.name);
         // do cool rust things, pass entities into the display.
 
         //~ match p.parseU8(MyDissector::FIELD1)
