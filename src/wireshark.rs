@@ -1,4 +1,3 @@
-// https://gitlab.com/wireshark/wireshark/-/blob/master/doc/README.dissector
 // https://www.wireshark.org/docs/wsdg_html/#ChDissectDetails
 // /usr/include/wireshark/epan
 
@@ -8,6 +7,7 @@
 
 // 1.5.1 Field Registration; https://github.com/wireshark/wireshark/blob/ebfbf958f6930b2dad486b33277470e8368dc111/doc/README.dissector#L1270
 // 1.7 Calling other dissectors; https://github.com/wireshark/wireshark/blob/ebfbf958f6930b2dad486b33277470e8368dc111/doc/README.dissector#L2471
+// 1.7.1 Dissector Tables; https://github.com/wireshark/wireshark/blob/ebfbf958f6930b2dad486b33277470e8368dc111/doc/README.dissector#L2540
 
 // THis seems useful?
 // https://stackoverflow.com/a/55323693
@@ -261,10 +261,20 @@ extern "C" {
     pub fn proto_register_plugin(plugin: *const proto_plugin);
 
     pub fn create_dissector_handle(dissector: dissector_t, proto: i32) -> dissector_handle_t;
-    pub fn register_postdissector(handle: dissector_handle_t);
 
     pub fn proto_register_field_array(parent: i32, hf: *mut hf_register_info, num_records: i32);
     pub fn proto_register_subtree_array();
+
+    pub fn register_postdissector(handle: dissector_handle_t);
+
+    pub fn dissector_add_uint(
+        abbrev: *const libc::c_char,
+        pattern: u32,
+        handle: dissector_handle_t,
+    );
+    //~ pub fn dissector_add_uint_range(abbrev: *const libc::c_char, range: epan_range, handle: dissector_handle_t);
+    //~ pub fn dissector_add_string(name: *const libc::c_char, pattern: *const libc::c_char, handle: dissector_handle_t);
+    pub fn dissector_add_for_decode_as(name: *const libc::c_char, handle: dissector_handle_t);
 
     // This is technically not from wireshark, it's from gtk.
     //~ let cstr = CString::new("hello").unwrap();

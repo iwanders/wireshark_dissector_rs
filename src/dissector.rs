@@ -66,6 +66,13 @@ pub trait Dissector {
 
     /// Called when there is somethign to dissect.
     fn dissect(self: &Self, dissection: &mut dyn Dissection);
+
+    /// Full name, short_name, filter_name
+    fn get_protocol_name(self: &Self) -> (&'static str, &'static str, &'static str);
+
+    fn get_registration(self: &Self) -> Vec<Registration> {
+        return vec![Registration::Post];
+    }
 }
 
 /// Trivial implementation for a DisplayItem.
@@ -104,6 +111,15 @@ impl PacketField {
 /// dynamically update the text or something later...
 pub trait DisplayItem {
     fn get_field(&self) -> PacketField;
+}
+
+// https://rust-lang.github.io/rfcs/0418-struct-variants.html
+// This is so fancy
+pub enum Registration {
+    Post, // called after every frame's dissection.
+    UInt { abbrev: &'static str, pattern: u32 },
+    //UIntRange(abbrev: &'static str, lower: u32, upper: u32),
+    DecodeAs { abbrev: &'static str },
 }
 
 use std::rc::Rc;
@@ -150,7 +166,7 @@ pub fn setup(d: Rc<dyn Dissector>) {
         let mut plugin_handle_box: Box<wireshark::proto_plugin> = Box::new(Default::default());
         plugin_handle_box.register_protoinfo = Some(proto_register_protoinfo);
         plugin_handle_box.register_handoff = Some(proto_register_handoff);
-        state.plugin_handle = Box::leak(plugin_handle_box); // Need this to persist....
+        state.plugin_handle = Box::leak(plugin_handle_box); // Need this to persist, but we don't ever need it anymore
         wireshark::proto_register_plugin(state.plugin_handle);
     }
 }
@@ -337,17 +353,16 @@ extern "C" fn dissect_protocol_function(
 extern "C" fn proto_register_protoinfo() {
     println!("proto_register_hello");
 
-    let cstr = util::perm_string("hello");
-
     unsafe {
         let state = &mut STATIC_DISSECTOR.as_mut().unwrap(); // less wordy.
 
-        let proto_int = wireshark::proto_register_protocol(
-            util::perm_string_ptr("The thingy"),
-            cstr.as_ptr(),
-            cstr.as_ptr(),
+        let (full_name, short_name, filter_name) = state.ptr.get_protocol_name();
+        state.proto_id = wireshark::proto_register_protocol(
+            util::perm_string_ptr(full_name),
+            util::perm_string_ptr(short_name),
+            util::perm_string_ptr(filter_name),
         );
-        println!("Proto proto_int: {:?}", proto_int);
+        println!("Proto proto_int: {:?}", state.proto_id);
 
         // ok, here we get to make our header fields array, and then we can pass that to wireshark.
         let fields = state.ptr.get_fields();
@@ -364,17 +379,44 @@ extern "C" fn proto_register_protoinfo() {
             });
         }
 
-        let z = wireshark::create_dissector_handle(Some(dissect_protocol_function), state.proto_id);
-        println!("state.proto_id {:?}", state.proto_id);
-        wireshark::register_postdissector(z);
-
         let rawptr = &mut state.fields_wireshark[0] as *mut wireshark::hf_register_info;
-        wireshark::proto_register_field_array(proto_int, rawptr, fields.len() as i32);
+        wireshark::proto_register_field_array(state.proto_id, rawptr, fields.len() as i32);
     }
 }
 
 extern "C" fn proto_register_handoff() {
+    // A handoff routine associates a protocol handler with the protocol’s traffic. It consists of two major steps:
+    // The first step is to create a dissector handle, which is a handle associated with the protocol and the function called to do the actual dissecting.
+    // The second step is to register the dissector handle so that traffic associated with the protocol calls the dissector.
     println!("proto_reg_handoff_hello");
+    unsafe {
+        let state = &mut STATIC_DISSECTOR.as_mut().unwrap(); // less wordy.
+        let dissector_handle =
+            wireshark::create_dissector_handle(Some(dissect_protocol_function), state.proto_id);
+
+        for registration in state.ptr.get_registration() {
+            match registration {
+                Registration::Post {} => {
+                    wireshark::register_postdissector(dissector_handle);
+                }
+                Registration::UInt { abbrev, pattern } => {
+                    wireshark::dissector_add_uint(
+                        util::perm_string_ptr(abbrev),
+                        pattern,
+                        dissector_handle,
+                    );
+                }
+                Registration::DecodeAs { abbrev } => {
+                    wireshark::dissector_add_for_decode_as(
+                        util::perm_string_ptr(abbrev),
+                        dissector_handle,
+                    );
+                }
+            }
+        }
+
+        // usb makes a table;     product_to_dissector = register_dissector_table("usb.product",   "USB product",  proto_usb, FT_UINT32, BASE_HEX);
+    }
 }
 
 #[no_mangle]

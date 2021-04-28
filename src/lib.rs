@@ -69,14 +69,23 @@ impl dissector::Dissector for MyDissector {
         dissection.dissect(&MyDissector::FIELD32.name);
         dissection.dissect(&MyDissector::FIELD64.name);
         // do cool rust things, pass entities into the display.
+    }
 
-        //~ match p.parseU8(MyDissector::FIELD1)
-        //~ {
-        //~ 0x20 => {
-        //~ // it's clearly a 'thing';
-        //~ p.parseU8(MyDissector::FIELD2)
-        //~ }
-        //~ }
+    fn get_protocol_name(self: &Self) -> (&'static str, &'static str, &'static str) {
+        return ("This is a test protocol", "testproto", "testproto");
+    }
+
+    fn get_registration(self: &Self) -> Vec<dissector::Registration> {
+        return vec![
+            dissector::Registration::Post,
+            dissector::Registration::DecodeAs {
+                abbrev: "usb.product"
+            },
+            dissector::Registration::UInt {
+                abbrev: "usb.product",
+                pattern: 0x15320226
+            },
+        ];
     }
 }
 
