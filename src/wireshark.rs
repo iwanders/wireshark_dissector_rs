@@ -9,6 +9,8 @@
 // 1.7 Calling other dissectors; https://github.com/wireshark/wireshark/blob/ebfbf958f6930b2dad486b33277470e8368dc111/doc/README.dissector#L2471
 // 1.7.1 Dissector Tables; https://github.com/wireshark/wireshark/blob/ebfbf958f6930b2dad486b33277470e8368dc111/doc/README.dissector#L2540
 
+// Reassembly 2.7.2 Modifying the pinfo struct; https://github.com/wireshark/wireshark/blob/ebfbf958f6930b2dad486b33277470e8368dc111/doc/README.dissector#L3472
+
 // THis seems useful?
 // https://stackoverflow.com/a/55323693
 
@@ -70,8 +72,8 @@ pub struct tvbuff_t {
 pub struct packet_info {
     _private: [u8; 0],
 }
-
 // Hmm, packet_info is enormous, but we have to reach into it for column info. Let skip that for now.
+
 
 #[repr(C)]
 pub struct proto_tree {
@@ -227,7 +229,11 @@ impl Default for epan_range {
 
 #[link(name = "wireshark")]
 extern "C" {
-    pub fn tvb_reported_length(tvb: *const tvbuff_t) -> i32;
+    // This function comes with the fatest warning ever...
+    pub fn tvb_get_ptr(tvb: *const tvbuff_t, offset: i32, length: i32) -> *const u8;
+
+    // Get reported length of buffer:
+    pub fn tvb_reported_length(tvb: *const tvbuff_t) -> u32;
 
     pub fn proto_tree_add_protocol_format(
         tree: *mut proto_tree,

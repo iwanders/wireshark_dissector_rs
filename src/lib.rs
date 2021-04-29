@@ -1,5 +1,12 @@
 // https://doc.rust-lang.org/nomicon/ffi.html
 
+/*
+Todo:
+    - display trees
+    - packet assembly?
+    - derivable structs such that they implement a dissector or something... wouldn't that be cool?
+*/
+
 // We can probably hook; https://github.com/wireshark/wireshark/blob/ebfbf958f6930b2dad486b33277470e8368dc111/epan/dissectors/packet-usb.c#L3516-L3518
 extern crate bitflags;
 extern crate libc;
@@ -62,6 +69,8 @@ impl dissector::Dissector for MyDissector {
     }
 
     fn dissect(self: &Self, dissection: &mut dyn dissector::Dissection) {
+        let current = dissection.peek();
+        println!("current: {:?}", current);
         dissection.dissect(&MyDissector::FIELD1.name);
         dissection.advance(5);
         dissection.dissect(&MyDissector::FIELD2.name);

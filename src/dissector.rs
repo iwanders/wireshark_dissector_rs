@@ -2,7 +2,8 @@
 /// The object we interact with when perfoming a dissection, allows querying the data and visualising it.
 pub trait Dissection {
     // peeks
-    fn peek_u8(self: &mut Self) -> u8;
+    fn peek_u8(self: &mut Self) -> Option<u8>;
+    fn peek(self: &mut Self) -> &[u8]; // The one peek method to rule them all...
 
     // Manual advance
     fn advance(self: &mut Self, amount: usize);
@@ -280,8 +281,22 @@ impl Dissection for EpanDissection {
         }
         self.pos += 0;
     }
-    fn peek_u8(self: &mut Self) -> u8 {
-        return 0 as u8;
+
+    fn peek_u8(self: &mut Self) -> Option<u8>
+    {
+        return None;
+    }
+
+    fn peek(self: &mut Self) -> &[u8]
+    {
+        unsafe
+        {
+            // should we be extra safe with tvb_ensure_bytes_exist? Shouldn't be necessary...
+            let reported_length = wireshark::tvb_reported_length(self.tvb) as usize;
+            let available_length = reported_length - self.pos;
+            let data_ptr = wireshark::tvb_get_ptr(self.tvb, self.pos as i32, available_length as i32);
+            return std::slice::from_raw_parts(data_ptr, available_length);
+        };
     }
 
     fn dissect_i8(self: &mut Self, item: &str) -> i8 {
