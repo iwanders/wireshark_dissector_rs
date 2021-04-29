@@ -85,6 +85,10 @@ impl dissector::Dissector for MyDissector {
                 abbrev: "usb.product",
                 pattern: 0x15320226
             },
+            //~ dissector::Registration::UIntRange {
+                //~ abbrev: "usb.product",
+                //~ ranges: vec![(0x15320000, 0x1532FFFF)]
+            //~ },
         ];
     }
 }

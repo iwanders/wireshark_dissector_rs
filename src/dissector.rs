@@ -118,7 +118,7 @@ pub trait DisplayItem {
 pub enum Registration {
     Post, // called after every frame's dissection.
     UInt { abbrev: &'static str, pattern: u32 },
-    //UIntRange(abbrev: &'static str, lower: u32, upper: u32),
+    UIntRange{abbrev: &'static str, ranges: Vec<(u32, u32)>},
     DecodeAs { abbrev: &'static str },
 }
 
@@ -406,6 +406,24 @@ extern "C" fn proto_register_handoff() {
                         dissector_handle,
                     );
                 }
+
+                Registration::UIntRange { abbrev, ranges } => {
+                    println!("Ranges...");
+                    let mut input : wireshark::epan_range = Default::default();
+                    for i in 0..ranges.len()
+                    {
+                        input.ranges[i].low = ranges[i].0;
+                        input.ranges[i].high = ranges[i].1;
+                    }
+                    input.nranges = input.ranges.len() as u32;
+
+                    wireshark::dissector_add_uint_range(
+                        util::perm_string_ptr(abbrev),
+                        &input as *const wireshark::epan_range,
+                        dissector_handle,
+                    );
+                }
+
                 Registration::DecodeAs { abbrev } => {
                     wireshark::dissector_add_for_decode_as(
                         util::perm_string_ptr(abbrev),

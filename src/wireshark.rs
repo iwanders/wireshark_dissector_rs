@@ -200,6 +200,31 @@ impl Default for hf_register_info {
     }
 }
 
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct range_admin_t 
+{
+    pub low: u32,
+    pub high: u32
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct epan_range
+{
+    pub nranges: u32,
+    pub ranges: [range_admin_t; 100] // Need https://blog.rust-lang.org/2021/02/26/const-generics-mvp-beta.html so badly...
+}
+impl Default for epan_range {
+    fn default() -> epan_range {
+        epan_range {
+            nranges: 0,
+            ranges: [range_admin_t{low: 0, high:0 }; 100],
+        }
+    }
+}
+
+
 #[link(name = "wireshark")]
 extern "C" {
     pub fn tvb_reported_length(tvb: *const tvbuff_t) -> i32;
@@ -272,7 +297,7 @@ extern "C" {
         pattern: u32,
         handle: dissector_handle_t,
     );
-    //~ pub fn dissector_add_uint_range(abbrev: *const libc::c_char, range: epan_range, handle: dissector_handle_t);
+    pub fn dissector_add_uint_range(abbrev: *const libc::c_char, range: *const epan_range, handle: dissector_handle_t);
     //~ pub fn dissector_add_string(name: *const libc::c_char, pattern: *const libc::c_char, handle: dissector_handle_t);
     pub fn dissector_add_for_decode_as(name: *const libc::c_char, handle: dissector_handle_t);
 
