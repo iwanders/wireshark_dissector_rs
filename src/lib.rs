@@ -3,7 +3,6 @@
 /*
 Todo:
     - display trees
-    - packet assembly?
     - derivable structs such that they implement a dissector or something... wouldn't that be cool?
 */
 
@@ -55,6 +54,17 @@ impl MyDissector {
         display: FieldDisplay::BASE_HEX,
     };
 }
+impl MyDissector
+{
+
+    fn dissect_displaylight(self: &Self, dissection: &mut dyn dissector::Dissection) 
+    {
+        dissection.dissect(&MyDissector::FIELD2.name);
+        dissection.advance(3);
+        dissection.dissect(&MyDissector::FIELD2.name);
+        dissection.dissect(&MyDissector::FIELD2.name);
+    }
+}
 
 impl dissector::Dissector for MyDissector {
     fn get_fields(self: &Self) -> Vec<dissector::PacketField> {
@@ -69,6 +79,7 @@ impl dissector::Dissector for MyDissector {
     }
 
     fn dissect(self: &Self, dissection: &mut dyn dissector::Dissection) {
+        return self.dissect_displaylight(dissection);
         let current = dissection.peek();
         println!("current: {:?}", current);
         dissection.dissect(&MyDissector::FIELD1.name);
@@ -86,13 +97,17 @@ impl dissector::Dissector for MyDissector {
 
     fn get_registration(self: &Self) -> Vec<dissector::Registration> {
         return vec![
-            dissector::Registration::Post,
+            //~ dissector::Registration::Post,
             dissector::Registration::DecodeAs {
                 abbrev: "usb.product"
             },
             dissector::Registration::UInt {
                 abbrev: "usb.product",
                 pattern: 0x15320226
+            },
+            dissector::Registration::UInt {
+                abbrev: "usb.device",
+                pattern: 0x00030003
             },
             //~ dissector::Registration::UIntRange {
                 //~ abbrev: "usb.product",

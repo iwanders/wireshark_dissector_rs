@@ -9,7 +9,11 @@
 // 1.7 Calling other dissectors; https://github.com/wireshark/wireshark/blob/ebfbf958f6930b2dad486b33277470e8368dc111/doc/README.dissector#L2471
 // 1.7.1 Dissector Tables; https://github.com/wireshark/wireshark/blob/ebfbf958f6930b2dad486b33277470e8368dc111/doc/README.dissector#L2540
 
+
+// 1.5.2 Adding Items and Values to the Protocol Tree. https://github.com/wireshark/wireshark/blob/ebfbf958f6930b2dad486b33277470e8368dc111/doc/README.dissector#L1351
+
 // Reassembly 2.7.2 Modifying the pinfo struct; https://github.com/wireshark/wireshark/blob/ebfbf958f6930b2dad486b33277470e8368dc111/doc/README.dissector#L3472
+// Yeah, that doesn't work for USB packets... gg.
 
 // THis seems useful?
 // https://stackoverflow.com/a/55323693
@@ -234,6 +238,10 @@ extern "C" {
 
     // Get reported length of buffer:
     pub fn tvb_reported_length(tvb: *const tvbuff_t) -> u32;
+    pub fn tvb_reported_length_remaining(tvb: *const tvbuff_t, offset: i32) -> u32;
+
+
+    pub fn proto_item_add_subtree(ti: *mut proto_item, ett_id: i32) -> *mut proto_tree;
 
     pub fn proto_tree_add_protocol_format(
         tree: *mut proto_tree,

@@ -291,11 +291,10 @@ impl Dissection for EpanDissection {
     {
         unsafe
         {
-            // should we be extra safe with tvb_ensure_bytes_exist? Shouldn't be necessary...
-            let reported_length = wireshark::tvb_reported_length(self.tvb) as usize;
-            let available_length = reported_length - self.pos;
+            // docs use gint available = tvb_reported_length_remaining(tvb, offset);
+            let available_length = wireshark::tvb_reported_length_remaining(self.tvb, self.pos as i32);
             let data_ptr = wireshark::tvb_get_ptr(self.tvb, self.pos as i32, available_length as i32);
-            return std::slice::from_raw_parts(data_ptr, available_length);
+            return std::slice::from_raw_parts(data_ptr, available_length as usize);
         };
     }
 
