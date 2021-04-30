@@ -1,3 +1,30 @@
+
+/*
+    Dissector
+        get_fields()
+        get_tree()
+        get_protocol_name()
+        get_registration()
+
+    ProtoTree
+        add_**(field_index, tvb, pos, len, encoding, ....) -> returns ProtoItem
+        add_boolean(field_index,tvb, start, 
+        add_item_ret_uint64 -> returns (ProtoItem, u64)
+
+    PacketInfo?
+        Lets ignore for now.
+
+    TVB
+        // Raw peeking into the buffer.
+
+    ProtoItem
+        // Things like:
+        proto_item_set_text(proto_item *ti, const char *format, ...) G_GNUC_PRINTF(2,3);
+        proto_item_add_subtree(tree_index) -> ProtoTree
+
+    
+ */
+
 //-------------------------------------------------
 /// The object we interact with when perfoming a dissection, allows querying the data and visualising it.
 pub trait Dissection {
