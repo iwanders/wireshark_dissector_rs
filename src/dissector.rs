@@ -1,4 +1,14 @@
 
+
+use crate::util;
+use crate::epan;
+
+//~ pub mod epan;
+//~ mod epan;
+
+use crate::epan as wireshark;
+use crate::epan::proto::Encoding;
+
 /*
     Dissector
         get_fields()
@@ -24,7 +34,7 @@
 
     
  */
-
+/*
 //-------------------------------------------------
 /// The object we interact with when perfoming a dissection, allows querying the data and visualising it.
 pub trait Dissection {
@@ -199,8 +209,6 @@ pub fn setup(d: Rc<dyn Dissector>) {
     }
 }
 
-use crate::util;
-use crate::wireshark;
 
 // https://github.com/wireshark/wireshark/blob/master/epan/dissectors/packet-g723.c
 
@@ -482,3 +490,4 @@ extern "C" fn proto_register_handoff() {
 static plugin_version: [libc::c_char; 4] = [50, 46, 54, 0]; // "2.6"
 #[no_mangle]
 static plugin_release: [libc::c_char; 4] = [50, 46, 54, 0]; // "2.6"
+*/
