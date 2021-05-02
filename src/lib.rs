@@ -138,14 +138,7 @@ impl dissector::Dissector for MyDissector {
 
 // This function is the main entry point where we can do our setup.
 #[no_mangle]
-pub fn plugin_register1() {
-    use std::rc::Rc;
-    let z = Rc::new(MyDissector {field_mapping: Vec::new()});
-    dissector::setup(z);
-}
-
-#[no_mangle]
 pub fn plugin_register() {
     let z = Box::new(MyDissector {field_mapping: Vec::new()});
-    dissector::setup2(z);
+    dissector::setup(z);
 }

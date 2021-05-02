@@ -69,57 +69,9 @@ pub enum Registration {
     DecodeAs { abbrev: &'static str },
 }
 
-use std::rc::Rc;
-// We know that wireshark will ensure only one thread accesses the disector, I think... make this static thing to
-// hold our dissector object.
-struct UnsafeDissectorHolder {
-    ptr: Rc<dyn Dissector>,
-
-    // The things below are usually static members in wireshark plugins.
-    proto_id: i32,
-    field_ids: Vec<epan::proto::HFIndex>,
-    fields_input: Vec<PacketField>,
-    fields_wireshark: Vec<epan::proto::hf_register_info>,
-    plugin_handle: *mut epan::proto::proto_plugin,
-}
-unsafe impl Sync for UnsafeDissectorHolder {}
-unsafe impl Send for UnsafeDissectorHolder {}
-impl UnsafeDissectorHolder {
-    fn new(ptr: Rc<dyn Dissector>) -> Self {
-        UnsafeDissectorHolder {
-            ptr: ptr,
-            proto_id: -1,
-            fields_input: Vec::new(),
-            field_ids: Vec::new(),
-            fields_wireshark: Vec::new(),
-            plugin_handle: 0 as *mut epan::proto::proto_plugin,
-        }
-    }
-}
-
-// Our global static dissector struct to hold our state in the plugin.
-static mut STATIC_DISSECTOR: Option<UnsafeDissectorHolder> = None;
-
-/// Entry point to provide the dissector the the plugin.
-pub fn setup(d: Rc<dyn Dissector>) {
-    // Assign the dissector to be called sequentially.
-    unsafe {
-        // Make our global state
-        STATIC_DISSECTOR = Some(UnsafeDissectorHolder::new(d));
-
-        // Then, make the plugin handle and bind the functions.
-        let state = &mut STATIC_DISSECTOR.as_mut().unwrap();
-
-        let mut plugin_handle_box: Box<epan::proto::proto_plugin> = Box::new(Default::default());
-        plugin_handle_box.register_protoinfo = Some(proto_register_protoinfo);
-        plugin_handle_box.register_handoff = Some(proto_register_handoff);
-        state.plugin_handle = Box::leak(plugin_handle_box); // Need this to persist, but we don't ever need it anymore
-        epan::proto::proto_register_plugin(state.plugin_handle);
-    }
-}
 
 static mut dissector_ptr : Option<*mut dyn Dissector> = None;
-pub fn setup2(d: Box<dyn Dissector>)
+pub fn setup(d: Box<dyn Dissector>)
 {
     unsafe
     {
