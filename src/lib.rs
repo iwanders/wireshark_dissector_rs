@@ -79,7 +79,7 @@ impl dissector::Dissector for MyDissector {
         //~ self.field_mapping = hfindices;
     }
 
-    fn dissect(self: &Self, proto: &mut epan::ProtoTree, tvb: &mut epan::TVB) {
+    fn dissect(self: &mut Self, proto: &mut epan::ProtoTree, tvb: &mut epan::TVB) {
         //~ return self.dissect_displaylight(dissection);
         //~ proto.add_item_ret_int(
         //~ let current = dissection.peek();
@@ -121,8 +121,14 @@ impl dissector::Dissector for MyDissector {
 
 // This function is the main entry point where we can do our setup.
 #[no_mangle]
-pub fn plugin_register() {
+pub fn plugin_register1() {
     use std::rc::Rc;
     let z = Rc::new(MyDissector {field_mapping: Vec::new()});
     dissector::setup(z);
+}
+
+#[no_mangle]
+pub fn plugin_register() {
+    let z = Box::new(MyDissector {field_mapping: Vec::new()});
+    dissector::setup2(z);
 }

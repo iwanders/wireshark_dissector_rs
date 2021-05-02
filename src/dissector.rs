@@ -15,7 +15,7 @@ pub trait Dissector {
     fn set_field_indices(self: &Self, hfindices: Vec<(PacketField, epan::proto::HFIndex)>);
 
     /// Called when there is somethign to dissect.
-    fn dissect(self: &Self, proto: &mut epan::ProtoTree, tvb: &mut epan::TVB);
+    fn dissect(self: &mut Self, proto: &mut epan::ProtoTree, tvb: &mut epan::TVB);
 
     /// Full name, short_name, filter_name
     fn get_protocol_name(self: &Self) -> (&'static str, &'static str, &'static str);
@@ -118,6 +118,21 @@ pub fn setup(d: Rc<dyn Dissector>) {
     }
 }
 
+static mut dissector_ptr : Option<*mut dyn Dissector> = None;
+pub fn setup2(d: Box<dyn Dissector>)
+{
+    unsafe
+    {
+        dissector_ptr = Some(Box::leak(d));
+        let mut plugin_handle_box: Box<epan::proto::proto_plugin> = Box::new(Default::default());
+        plugin_handle_box.register_protoinfo = Some(proto_register_protoinfo);
+        plugin_handle_box.register_handoff = Some(proto_register_handoff);
+        let ptr_to_plugin = Box::leak(plugin_handle_box); // Need this to persist, but we don't ever need it anymore
+        epan::proto::proto_register_plugin(ptr_to_plugin);
+    }
+}
+
+
 
 extern "C" fn dissect_protocol_function(
     tvb: *mut epan::tvbuff::tvbuff_t,
@@ -126,61 +141,88 @@ extern "C" fn dissect_protocol_function(
     _data: *mut libc::c_void,
 ) -> u32 {
 
-    let dissector: Option<Rc<dyn Dissector>>;
+    //~ let dissector: Option<Rc<dyn Dissector>>;
+    let mut dissector_tmp : Option<Box<dyn Dissector>> = None;
 
     // Copy our dissector pointer
     unsafe {
-        let state = &mut STATIC_DISSECTOR.as_mut().unwrap();
-        dissector = Some(Rc::clone(&state.ptr));
+        //~ let state = &mut STATIC_DISSECTOR.as_mut().unwrap();
+        //~ dissector = Some(Rc::clone(&state.ptr));
+        dissector_tmp = Some(Box::from_raw(dissector_ptr.unwrap()));
     }
     // Let the dissector do its thing!
 
     let mut proto: epan::ProtoTree = epan::ProtoTree::from_ptr(tree);
     let mut tvb: epan::TVB = epan::TVB::from_ptr(tvb);
-    dissector.unwrap().dissect(&mut proto, &mut tvb);
+    dissector_tmp.as_mut().unwrap().dissect(&mut proto, &mut tvb);
 
+    unsafe {
+        dissector_ptr = Some(Box::leak(dissector_tmp.unwrap()));
+    }
     return tvb.reported_length() as u32;
 }
+
+static mut hf_entries : Option<Vec<epan::proto::hf_register_info>> = None;
+static mut proto_id : i32 = -1;
 
 extern "C" fn proto_register_protoinfo() {
     println!("proto_register_hello");
 
+    let mut dissector_tmp_option : Option<Box<dyn Dissector>> = None;
+
     unsafe {
-        let state = &mut STATIC_DISSECTOR.as_mut().unwrap(); // less wordy.
+        hf_entries = Some(Vec::new());
+    }
 
-        let (full_name, short_name, filter_name) = state.ptr.get_protocol_name();
-        state.proto_id = epan::proto::proto_register_protocol(
-            util::perm_string_ptr(full_name),
-            util::perm_string_ptr(short_name),
-            util::perm_string_ptr(filter_name),
-        );
-        println!("Proto proto_int: {:?}", state.proto_id);
+    unsafe {
+        dissector_tmp_option = Some(Box::from_raw(dissector_ptr.unwrap()));
+    }
+    {
+        let dissector_tmp = dissector_tmp_option.as_mut().unwrap();
 
-        // ok, here we get to make our header fields array, and then we can pass that to wireshark.
-        let fields = state.ptr.get_fields();
-        state.fields_input = state.ptr.get_fields();
-        println!(
-            "Registering {} fields in the protocol register.",
-            fields.len()
-        );
-        state.field_ids.resize(fields.len(), epan::proto::HFIndex(-1));
-        for i in 0..fields.len() {
-            state.fields_wireshark.push(epan::proto::hf_register_info {
-                p_id: &mut state.field_ids[i],
-                hfinfo: fields[i].into(),
-            });
+        let mut field_ids: Vec<epan::proto::HFIndex> = Vec::new();
+        unsafe {
+            //~ let state = &mut STATIC_DISSECTOR.as_mut().unwrap(); // less wordy.
+
+            let (full_name, short_name, filter_name) = dissector_tmp.get_protocol_name();
+            proto_id = epan::proto::proto_register_protocol(
+                util::perm_string_ptr(full_name),
+                util::perm_string_ptr(short_name),
+                util::perm_string_ptr(filter_name),
+            );
+            println!("Proto proto_int: {:?}", proto_id);
+
+            // ok, here we get to make our header fields array, and then we can pass that to wireshark.
+            let fields = &mut hf_entries.as_mut().unwrap();
+            let fields_input = dissector_tmp.get_fields();
+            println!(
+                "Registering {} fields in the protocol register.",
+                fields_input.len()
+            );
+            
+            field_ids.resize(fields_input.len(), epan::proto::HFIndex(-1));
+            for i in 0..fields_input.len() {
+                fields.push(epan::proto::hf_register_info {
+                    p_id: &mut field_ids[i],
+                    hfinfo: fields_input[i].into(),
+                });
+            }
+            println!("state.fields_wireshark: {:?}", fields);
+            let rawptr = &mut fields[0] as *mut epan::proto::hf_register_info;
+            epan::proto::proto_register_field_array(proto_id, rawptr, fields.len() as i32);
+        
+            //fn set_field_indices(self: &Self, hfindices: Vec<(PacketField, epan::proto::HFIndex)>);
+            let mut hfindices : Vec<(PacketField, epan::proto::HFIndex)> = Vec::new();
+            for i in 0..fields.len()
+            {
+                hfindices.push((fields_input[i], field_ids[i]));
+            }
+            dissector_tmp.set_field_indices(hfindices);
         }
-        println!("state.fields_wireshark: {:?}", state.fields_wireshark);
-        let rawptr = &mut state.fields_wireshark[0] as *mut epan::proto::hf_register_info;
-        epan::proto::proto_register_field_array(state.proto_id, rawptr, fields.len() as i32);
-    
-        //fn set_field_indices(self: &Self, hfindices: Vec<(PacketField, epan::proto::HFIndex)>);
-        let mut hfindices : Vec<(PacketField, epan::proto::HFIndex)> = Vec::new();
-        for i in 0..fields.len()
-        {
-            hfindices.push((fields[i], state.field_ids[i]));
-        }
-        state.ptr.set_field_indices(hfindices);
+    }
+
+    unsafe {
+        dissector_ptr = Some(Box::leak(dissector_tmp_option.unwrap()));
     }
 }
 
@@ -189,12 +231,22 @@ extern "C" fn proto_register_handoff() {
     // The first step is to create a dissector handle, which is a handle associated with the protocol and the function called to do the actual dissecting.
     // The second step is to register the dissector handle so that traffic associated with the protocol calls the dissector.
     println!("proto_reg_handoff_hello");
-    unsafe {
-        let state = &mut STATIC_DISSECTOR.as_mut().unwrap(); // less wordy.
-        let dissector_handle =
-            epan::packet::create_dissector_handle(Some(dissect_protocol_function), state.proto_id);
 
-        for registration in state.ptr.get_registration() {
+    let mut dissector_tmp_option : Option<Box<dyn Dissector>> = None;
+    unsafe
+    {
+        dissector_tmp_option = Some(Box::from_raw(dissector_ptr.unwrap()));
+    }
+
+    unsafe {
+        let dissector_tmp = dissector_tmp_option.as_mut().unwrap();
+        //~ let state = &mut STATIC_DISSECTOR.as_mut().unwrap(); // less wordy.
+        
+
+        let dissector_handle =
+            epan::packet::create_dissector_handle(Some(dissect_protocol_function), proto_id);
+
+        for registration in dissector_tmp.get_registration() {
             match registration {
                 Registration::Post {} => {
                     epan::packet::register_postdissector(dissector_handle);
@@ -234,6 +286,10 @@ extern "C" fn proto_register_handoff() {
         }
 
         // usb makes a table;     product_to_dissector = register_dissector_table("usb.product",   "USB product",  proto_usb, FT_UINT32, BASE_HEX);
+    }
+
+    unsafe {
+        dissector_ptr = Some(Box::leak(dissector_tmp_option.unwrap()));
     }
 }
 
