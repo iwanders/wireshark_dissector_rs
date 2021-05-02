@@ -19,7 +19,6 @@ pub mod util;
 pub mod epan;
 //~ pub mod wireshark;
 
-/*
 // Lift these to make it less verbose.
 type FieldType = dissector::FieldType;
 type FieldDisplay = dissector::FieldDisplay;
@@ -127,4 +126,3 @@ pub fn plugin_register() {
     let z = Rc::new(MyDissector {});
     dissector::setup(z);
 }
-*/

@@ -91,20 +91,6 @@ impl Default for header_field_info {
     }
 }
 
-/*
-impl From<dissector::PacketField> for header_field_info {
-    fn from(field: dissector::PacketField) -> Self {
-        //~ unsafe {
-        header_field_info {
-            name: util::perm_string_ptr(field.name),
-            abbrev: util::perm_string_ptr(field.abbrev),
-            type_: field.field_type.into(),
-            display: field.display.into(),
-            ..Default::default()
-        }
-        //~ }
-    }
-}*/
 
 
 #[repr(C)]

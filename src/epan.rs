@@ -21,7 +21,11 @@
 #![allow(non_camel_case_types)]
 #![allow(dead_code)]
 
+
+// These files follow the same structure as the header files.
 pub mod proto;
 pub mod ftypes;
 pub mod range;
 pub mod tvbuff;
+pub mod packet;
+pub mod packet_info;

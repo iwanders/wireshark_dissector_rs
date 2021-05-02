@@ -34,7 +34,7 @@ use crate::epan::proto::Encoding;
 
     
  */
-/*
+
 //-------------------------------------------------
 /// The object we interact with when perfoming a dissection, allows querying the data and visualising it.
 pub trait Dissection {
@@ -128,8 +128,8 @@ pub trait Dissector {
 //~ }
 
 //-------------------------------------------------
-pub type FieldType = wireshark::ftenum;
-pub type FieldDisplay = wireshark::FieldDisplay;
+pub type FieldType = epan::ftypes::ftenum;
+pub type FieldDisplay = epan::proto::FieldDisplay;
 
 /// Specification for a field that can be displayed.
 #[derive(Debug, Copy, Clone)]
@@ -143,6 +143,21 @@ impl PacketField {
     //~ pub fn display(self: &Self) -> DisplayItemField {
     //~ DisplayItemField { field: *self }
     //~ }
+}
+
+
+impl From<PacketField> for epan::proto::header_field_info {
+    fn from(field: PacketField) -> Self {
+        //~ unsafe {
+        epan::proto::header_field_info {
+            name: util::perm_string_ptr(field.name),
+            abbrev: util::perm_string_ptr(field.abbrev),
+            type_: field.field_type.into(),
+            display: field.display.into(),
+            ..Default::default()
+        }
+        //~ }
+    }
 }
 
 /// Something that is displayable in the ui, extra abstraction on top of PacketField atm, such that we can
@@ -170,8 +185,8 @@ struct UnsafeDissectorHolder {
     proto_id: i32,
     field_ids: Vec<i32>,
     fields_input: Vec<PacketField>,
-    fields_wireshark: Vec<wireshark::hf_register_info>,
-    plugin_handle: *mut wireshark::proto_plugin,
+    fields_wireshark: Vec<epan::proto::hf_register_info>,
+    plugin_handle: *mut epan::proto::proto_plugin,
 }
 unsafe impl Sync for UnsafeDissectorHolder {}
 unsafe impl Send for UnsafeDissectorHolder {}
@@ -183,7 +198,7 @@ impl UnsafeDissectorHolder {
             fields_input: Vec::new(),
             field_ids: Vec::new(),
             fields_wireshark: Vec::new(),
-            plugin_handle: 0 as *mut wireshark::proto_plugin,
+            plugin_handle: 0 as *mut epan::proto::proto_plugin,
         }
     }
 }
@@ -201,11 +216,11 @@ pub fn setup(d: Rc<dyn Dissector>) {
         // Then, make the plugin handle and bind the functions.
         let state = &mut STATIC_DISSECTOR.as_mut().unwrap();
 
-        let mut plugin_handle_box: Box<wireshark::proto_plugin> = Box::new(Default::default());
+        let mut plugin_handle_box: Box<epan::proto::proto_plugin> = Box::new(Default::default());
         plugin_handle_box.register_protoinfo = Some(proto_register_protoinfo);
         plugin_handle_box.register_handoff = Some(proto_register_handoff);
         state.plugin_handle = Box::leak(plugin_handle_box); // Need this to persist, but we don't ever need it anymore
-        wireshark::proto_register_plugin(state.plugin_handle);
+        epan::proto::proto_register_plugin(state.plugin_handle);
     }
 }
 
@@ -215,9 +230,9 @@ pub fn setup(d: Rc<dyn Dissector>) {
 /// The implementation of Dissection that will interface with wireshark.
 struct EpanDissection {
     // Wireshark stuff
-    pub tvb: *mut wireshark::tvbuff_t,
-    pub packet_info: *mut wireshark::packet_info,
-    pub tree: *mut wireshark::proto_tree,
+    pub tvb: *mut epan::tvbuff::tvbuff_t,
+    pub packet_info: *mut epan::packet_info::packet_info,
+    pub tree: *mut epan::proto::proto_tree,
 
     // Our own stuff
     pub pos: usize,
@@ -246,13 +261,13 @@ impl EpanDissection {
         let field_id = self.find_field_wireshark_id(item);
         let mut retval: u32 = 0;
         unsafe {
-            wireshark::proto_tree_add_item_ret_uint(
+            epan::proto::proto_tree_add_item_ret_uint(
                 self.tree,
                 field_id,
                 self.tvb,
                 self.pos as i32,
                 size as i32,
-                wireshark::Encoding::BIG_ENDIAN,
+                epan::proto::Encoding::BIG_ENDIAN,
                 &mut retval as *mut u32,
             );
         }
@@ -263,13 +278,13 @@ impl EpanDissection {
         let field_id = self.find_field_wireshark_id(item);
         let mut retval: u64 = 0;
         unsafe {
-            wireshark::proto_tree_add_item_ret_uint64(
+            epan::proto::proto_tree_add_item_ret_uint64(
                 self.tree,
                 field_id,
                 self.tvb,
                 self.pos as i32,
                 size as i32,
-                wireshark::Encoding::BIG_ENDIAN,
+                epan::proto::Encoding::BIG_ENDIAN,
                 &mut retval as *mut u64,
             );
         }
@@ -281,13 +296,13 @@ impl EpanDissection {
         let field_id = self.find_field_wireshark_id(item);
         let mut retval: i32 = 0;
         unsafe {
-            wireshark::proto_tree_add_item_ret_int(
+            epan::proto::proto_tree_add_item_ret_int(
                 self.tree,
                 field_id,
                 self.tvb,
                 self.pos as i32,
                 size as i32,
-                wireshark::Encoding::BIG_ENDIAN,
+                epan::proto::Encoding::BIG_ENDIAN,
                 &mut retval as *mut i32,
             );
         }
@@ -305,13 +320,13 @@ impl Dissection for EpanDissection {
     fn dissect_proto(self: &mut Self, item: &str) {
         let field_id = self.find_field_wireshark_id(item);
         unsafe {
-            wireshark::proto_tree_add_item(
+            epan::proto::proto_tree_add_item(
                 self.tree,
                 field_id,
                 self.tvb,
                 self.pos as i32,
                 0 as i32,
-                wireshark::Encoding::BIG_ENDIAN,
+                epan::proto::Encoding::BIG_ENDIAN,
             );
         }
         self.pos += 0;
@@ -327,8 +342,8 @@ impl Dissection for EpanDissection {
         unsafe
         {
             // docs use gint available = tvb_reported_length_remaining(tvb, offset);
-            let available_length = wireshark::tvb_reported_length_remaining(self.tvb, self.pos as i32);
-            let data_ptr = wireshark::tvb_get_ptr(self.tvb, self.pos as i32, available_length as i32);
+            let available_length = epan::tvbuff::tvb_reported_length_remaining(self.tvb, self.pos as i32);
+            let data_ptr = epan::tvbuff::tvb_get_ptr(self.tvb, self.pos as i32, available_length as i32);
             return std::slice::from_raw_parts(data_ptr, available_length as usize);
         };
     }
@@ -366,9 +381,9 @@ impl Dissection for EpanDissection {
 }
 
 extern "C" fn dissect_protocol_function(
-    tvb: *mut wireshark::tvbuff_t,
-    packet_info: *mut wireshark::packet_info,
-    tree: *mut wireshark::proto_tree,
+    tvb: *mut epan::tvbuff::tvbuff_t,
+    packet_info: *mut epan::packet_info::packet_info,
+    tree: *mut epan::proto::proto_tree,
     _data: *mut libc::c_void,
 ) -> u32 {
     // Construct our dissection wrapper
@@ -395,7 +410,7 @@ extern "C" fn dissect_protocol_function(
     dissector.unwrap().dissect(&mut dissection);
 
     unsafe {
-        return wireshark::tvb_reported_length(tvb) as u32;
+        return epan::tvbuff::tvb_reported_length(tvb) as u32;
     }
 }
 
@@ -406,7 +421,7 @@ extern "C" fn proto_register_protoinfo() {
         let state = &mut STATIC_DISSECTOR.as_mut().unwrap(); // less wordy.
 
         let (full_name, short_name, filter_name) = state.ptr.get_protocol_name();
-        state.proto_id = wireshark::proto_register_protocol(
+        state.proto_id = epan::proto::proto_register_protocol(
             util::perm_string_ptr(full_name),
             util::perm_string_ptr(short_name),
             util::perm_string_ptr(filter_name),
@@ -422,14 +437,14 @@ extern "C" fn proto_register_protoinfo() {
         );
         state.field_ids.resize(fields.len(), -1);
         for i in 0..fields.len() {
-            state.fields_wireshark.push(wireshark::hf_register_info {
+            state.fields_wireshark.push(epan::proto::hf_register_info {
                 p_id: &mut state.field_ids[i] as *mut i32,
                 hfinfo: fields[i].into(),
             });
         }
 
-        let rawptr = &mut state.fields_wireshark[0] as *mut wireshark::hf_register_info;
-        wireshark::proto_register_field_array(state.proto_id, rawptr, fields.len() as i32);
+        let rawptr = &mut state.fields_wireshark[0] as *mut epan::proto::hf_register_info;
+        epan::proto::proto_register_field_array(state.proto_id, rawptr, fields.len() as i32);
     }
 }
 
@@ -441,15 +456,15 @@ extern "C" fn proto_register_handoff() {
     unsafe {
         let state = &mut STATIC_DISSECTOR.as_mut().unwrap(); // less wordy.
         let dissector_handle =
-            wireshark::create_dissector_handle(Some(dissect_protocol_function), state.proto_id);
+            epan::packet::create_dissector_handle(Some(dissect_protocol_function), state.proto_id);
 
         for registration in state.ptr.get_registration() {
             match registration {
                 Registration::Post {} => {
-                    wireshark::register_postdissector(dissector_handle);
+                    epan::packet::register_postdissector(dissector_handle);
                 }
                 Registration::UInt { abbrev, pattern } => {
-                    wireshark::dissector_add_uint(
+                    epan::packet::dissector_add_uint(
                         util::perm_string_ptr(abbrev),
                         pattern,
                         dissector_handle,
@@ -458,7 +473,7 @@ extern "C" fn proto_register_handoff() {
 
                 Registration::UIntRange { abbrev, ranges } => {
                     println!("Ranges...");
-                    let mut input : wireshark::epan_range = Default::default();
+                    let mut input : epan::range::epan_range = Default::default();
                     for i in 0..ranges.len()
                     {
                         input.ranges[i].low = ranges[i].0;
@@ -466,15 +481,15 @@ extern "C" fn proto_register_handoff() {
                     }
                     input.nranges = input.ranges.len() as u32;
 
-                    wireshark::dissector_add_uint_range(
+                    epan::packet::dissector_add_uint_range(
                         util::perm_string_ptr(abbrev),
-                        &input as *const wireshark::epan_range,
+                        &input as *const epan::range::epan_range,
                         dissector_handle,
                     );
                 }
 
                 Registration::DecodeAs { abbrev } => {
-                    wireshark::dissector_add_for_decode_as(
+                    epan::packet::dissector_add_for_decode_as(
                         util::perm_string_ptr(abbrev),
                         dissector_handle,
                     );
@@ -490,4 +505,3 @@ extern "C" fn proto_register_handoff() {
 static plugin_version: [libc::c_char; 4] = [50, 46, 54, 0]; // "2.6"
 #[no_mangle]
 static plugin_release: [libc::c_char; 4] = [50, 46, 54, 0]; // "2.6"
-*/

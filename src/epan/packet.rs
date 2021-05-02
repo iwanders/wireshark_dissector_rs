@@ -1,4 +1,9 @@
 
+use super::tvbuff::tvbuff_t;
+use super::packet_info::packet_info;
+use super::range::epan_range;
+use super::proto::proto_tree;
+
 #[repr(C)]
 pub struct dissector_handle {
     _private: [u8; 0],
