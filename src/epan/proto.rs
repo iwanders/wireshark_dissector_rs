@@ -122,17 +122,18 @@ impl Default for proto_plugin {
 #[link(name = "wireshark")]
 extern "C" {
 
+    // proto register
     pub fn proto_register_protocol(
         name: *const libc::c_char,
         short_name: *const libc::c_char,
         filter_name: *const libc::c_char,
     ) -> i32;
     pub fn proto_register_plugin(plugin: *const proto_plugin);
-
     pub fn proto_register_field_array(parent: i32, hf: *mut hf_register_info, num_records: i32);
 
-    pub fn proto_item_add_subtree(ti: *mut proto_item, ett_id: i32) -> *mut proto_tree;
+    //~ pub fn proto_register_subtree_array(); // signature looks wrong.
 
+    // Proto tree
     pub fn proto_tree_add_protocol_format(
         tree: *mut proto_tree,
         hfindex: HFIndex,
@@ -182,6 +183,12 @@ extern "C" {
         retval: *mut u32,
     ) -> *mut proto_item;
 
-    pub fn proto_register_subtree_array();
+
+
+    // Proto item functions below
+    pub fn proto_item_set_text(ti: *mut proto_item, text: *const libc::c_char);
+    pub fn proto_item_append_text(ti: *mut proto_item, text: *const libc::c_char);
+    pub fn proto_item_prepend_text(ti: *mut proto_item, text: *const libc::c_char);
+    pub fn proto_item_add_subtree(ti: *mut proto_item, ett_id: i32) -> *mut proto_tree;
 
 }

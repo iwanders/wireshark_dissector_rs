@@ -10,6 +10,6 @@ extern "C" {
 
     // Get reported length of buffer:
     pub fn tvb_reported_length(tvb: *const tvbuff_t) -> u32;
-    pub fn tvb_reported_length_remaining(tvb: *const tvbuff_t, offset: i32) -> u32;
+    pub fn tvb_reported_length_remaining(tvb: *const tvbuff_t, offset: i32) -> i32;
 
 }

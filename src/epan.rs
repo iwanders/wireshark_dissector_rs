@@ -53,36 +53,44 @@ pub mod tvbuff;
 
 
 */
-
+/// Struct to represent a protocol tree, serves as a wrapper around the `proto_tree_*` C functions.
 pub struct ProtoTree {
     tree: *mut proto::proto_tree,
 }
 
 impl ProtoTree {
-    pub fn from_ptr(tree: *mut proto::proto_tree) -> ProtoTree {
+
+    /// Function to make this structure from a raw pointer.
+    pub unsafe fn from_ptr(tree: *mut proto::proto_tree) -> ProtoTree {
         return ProtoTree { tree: tree };
     }
+
+    /// Add an item to a proto_tree, using the text label registered to that item.
+    /// The item is extracted from the tvbuff handed to it.
     pub fn add_item(
         self: &mut Self,
         hfindex: proto::HFIndex,
         tvb: &mut TVB,
-        start: i32,
-        length: i32,
+        start: usize,
+        length: usize,
         encoding: proto::Encoding,
     ) -> ProtoItem {
         unsafe {
             ProtoItem {
-                item: proto::proto_tree_add_item(self.tree, hfindex, tvb.into(), start, length, encoding),
+                item: proto::proto_tree_add_item(self.tree, hfindex, tvb.into(), start as i32, length as i32, encoding),
             }
         }
     }
 
+    /// Add an integer data item to a proto_tree, using the text label registered to that item.
+    /// The item is extracted from the tvbuff handed to it, and the retrieved
+    /// value is also returned to so the caller gets it back for other uses.
     pub fn add_item_ret_int(
         self: &mut Self,
         hfindex: proto::HFIndex,
         tvb: &mut TVB,
-        start: i32,
-        length: i32,
+        start: usize,
+        length: usize,
         encoding: proto::Encoding,
     ) -> (ProtoItem, i32) {
         let mut retval: i32 = 0;
@@ -105,33 +113,111 @@ impl ProtoTree {
     }
 }
 
+
+use std::ffi::CString;
+
+/// Struct to represent a protocol item, serves as a wrapper around the `proto_item_*` C functions.
 pub struct ProtoItem {
     item: *mut proto::proto_item,
 }
+impl ProtoItem
+{
+    /// Replace text of item after it already has been created.
+    pub fn set_text(self: &mut Self, text: &str)
+    {
+        let to_add = CString::new(text).unwrap().into_raw();
+        unsafe
+        {
+            proto::proto_item_set_text(self.item.into(), to_add);
+            // and clean up the string again.
+            let _ = CString::from_raw(to_add);
+        }
+    }
 
+    /// Append to text of item after it has already been created.
+    pub fn append_text(self: &mut Self, text: &str)
+    {
+        let to_add = CString::new(text).unwrap().into_raw();
+        unsafe
+        {
+            proto::proto_item_append_text(self.item.into(), to_add);
+            let _ = CString::from_raw(to_add);
+        }
+    }
+
+    /// Prepend to text of item after it has already been created.
+    pub fn prepend_text(self: &mut Self, text: &str)
+    {
+        let to_add = CString::new(text).unwrap().into_raw();
+        unsafe
+        {
+            proto::proto_item_prepend_text(self.item.into(), to_add);
+            let _ = CString::from_raw(to_add);
+        }
+    }
+
+    pub fn add_subtree(self: &mut Self, /* subtree id... */)
+    {
+        //~ pub fn proto_item_add_subtree(ti: *mut proto_item, ett_id: i32) -> *mut proto_tree;
+    }
+}
+impl From<&mut ProtoItem> for *mut proto::proto_item {
+    fn from(field: &mut ProtoItem) -> Self {
+        return field.item;
+    }
+}
+
+/// Struct to represent a Testy Virtual Buffer, serves as a wrapper around the `tvb_*` C functions.
 pub struct TVB {
     tvb: *mut tvbuff::tvbuff_t,
 }
 impl TVB {
-    pub fn from_ptr(tvb: *mut tvbuff::tvbuff_t) -> TVB {
+
+    /// Create this structure from a raw pointer.
+    pub unsafe fn from_ptr(tvb: *mut tvbuff::tvbuff_t) -> TVB {
         return TVB { tvb: tvb };
     }
+
+    /// Function to create a byte slice that can be used to access the data from the tvb.
+    /// This comes with the following disclaimer in the header:
+    ///
+    /// This function is possibly expensive, temporarily allocating
+    /// another copy of the packet data. Furthermore, it's dangerous because once
+    /// this pointer is given to the user, there's no guarantee that the user will
+    /// honor the 'length' and not overstep the boundaries of the buffer.
+    ///
+    /// If you're thinking of using tvb_get_ptr, STOP WHAT YOU ARE DOING
+    /// IMMEDIATELY. Go take a break. Consider that tvb_get_ptr hands you
+    /// a raw, unprotected pointer that you can easily use to create a
+    /// security vulnerability or otherwise crash Wireshark. Then consider
+    /// that you can probably find a function elsewhere in this file that
+    /// does exactly what you want in a much more safe and robust manner.
     pub fn bytes(self: &mut Self, offset: usize) -> &[u8] {
         unsafe {
-            let available_length = tvbuff::tvb_reported_length_remaining(self.tvb, offset as i32);
+            let mut available_length = tvbuff::tvb_reported_length_remaining(self.tvb, offset as i32);
+            if available_length < 0
+            {
+                available_length = 0;
+            }
             let data_ptr = tvbuff::tvb_get_ptr(self.tvb, offset as i32, available_length as i32);
             return std::slice::from_raw_parts(data_ptr, available_length as usize);
         };
     }
+
+    /// Get reported length of buffer.
     pub fn reported_length(self: &mut Self) -> usize {
         unsafe {
             return tvbuff::tvb_reported_length(self.tvb) as usize;
         }
     }
 
-    pub fn tvb_reported_length_remaining(self: &mut Self, offset: usize) -> usize {
+    /// Computes bytes of reported packet data to end of buffer, from offset
+    /// (which can be negative, to indicate bytes from end of buffer). Function
+    /// returns 0 if offset is either at the end of the buffer or out of bounds.
+    /// No exception is thrown.
+    pub fn tvb_reported_length_remaining(self: &mut Self, offset: usize) -> i32 {
         unsafe {
-            return tvbuff::tvb_reported_length_remaining(self.tvb, offset as i32) as usize;
+            return tvbuff::tvb_reported_length_remaining(self.tvb, offset as i32);
         }
     }
 }

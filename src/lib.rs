@@ -48,8 +48,8 @@ impl MyDissector {
     const FIELD32: dissector::PacketField = dissector::PacketField {
         name: "uint32 byte",
         abbrev: "proto.byte3",
-        field_type: FieldType::UINT32,
-        display: FieldDisplay::BASE_HEX,
+        field_type: FieldType::INT32,
+        display: FieldDisplay::BASE_DEC,
     };
     const FIELD64: dissector::PacketField = dissector::PacketField {
         name: "uint64 byte",
@@ -95,13 +95,12 @@ impl dissector::Dissector for MyDissector {
             1,
             epan::proto::Encoding::BIG_ENDIAN,
         );
-        proto.add_item(
-            self.get_id(&MyDissector::FIELD3),
-            tvb,
-            1,
-            2,
-            epan::proto::Encoding::BIG_ENDIAN,
-        );
+        proto.add_item(self.get_id(&MyDissector::FIELD3),tvb,1,2,epan::proto::Encoding::BIG_ENDIAN);
+        let (mut item, retval) = proto.add_item_ret_int(self.get_id(&MyDissector::FIELD32),tvb,1,4,epan::proto::Encoding::BIG_ENDIAN);
+        if retval % 2 == 0
+        {
+            item.prepend_text("foo");
+        }
         tvb.reported_length()
     }
 

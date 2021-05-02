@@ -12,12 +12,14 @@ pub trait Dissector {
     /// to refer to the registered fields.
     fn set_field_indices(self: &mut Self, hfindices: Vec<(PacketField, epan::proto::HFIndex)>);
 
-    /// Called when there is somethign to dissect.
+    /// Called when there is something to dissect, so probably called for every packet. This function must return how
+    /// many bytes it used from the tvb.
     fn dissect(self: &mut Self, proto: &mut epan::ProtoTree, tvb: &mut epan::TVB) -> usize;
 
     /// Full name, short_name, filter_name
     fn get_protocol_name(self: &Self) -> (&'static str, &'static str, &'static str);
 
+    /// This method should return a list that describes how this dissector's should be registered.
     fn get_registration(self: &Self) -> Vec<Registration> {
         return vec![Registration::Post];
     }

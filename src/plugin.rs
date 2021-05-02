@@ -39,8 +39,8 @@ extern "C" fn dissect_protocol_function(
     }
 
     // Create our nice safe wrappers
-    let mut proto: epan::ProtoTree = epan::ProtoTree::from_ptr(tree);
-    let mut tvb: epan::TVB = epan::TVB::from_ptr(tvb);
+    let mut proto: epan::ProtoTree = unsafe{ epan::ProtoTree::from_ptr(tree)};
+    let mut tvb: epan::TVB = unsafe{  epan::TVB::from_ptr(tvb) };
 
     // Call the dissector.
     let used_bytes = dissector_tmp.as_mut().unwrap().dissect(&mut proto, &mut tvb);
