@@ -13,6 +13,7 @@ extern crate libc;
 extern crate lazy_static;
 
 pub mod dissector;
+pub mod plugin;
 pub mod util;
 
 pub mod epan;
@@ -23,7 +24,7 @@ type FieldType = dissector::FieldType;
 type FieldDisplay = dissector::FieldDisplay;
 
 struct MyDissector {
-    field_mapping : Vec<(dissector::PacketField, epan::proto::HFIndex)>
+    field_mapping: Vec<(dissector::PacketField, epan::proto::HFIndex)>,
 }
 impl MyDissector {
     const FIELD1: dissector::PacketField = dissector::PacketField {
@@ -56,16 +57,11 @@ impl MyDissector {
         field_type: FieldType::UINT64,
         display: FieldDisplay::BASE_HEX,
     };
-    
 }
-impl MyDissector
-{
-    fn get_id(self: &Self, desired_field: &dissector::PacketField) -> epan::proto::HFIndex
-    {
-        for (field, index) in &self.field_mapping
-        {
-            if field.name == desired_field.name
-            {
+impl MyDissector {
+    fn get_id(self: &Self, desired_field: &dissector::PacketField) -> epan::proto::HFIndex {
+        for (field, index) in &self.field_mapping {
+            if field.name == desired_field.name {
                 return *index;
             }
         }
@@ -85,15 +81,31 @@ impl dissector::Dissector for MyDissector {
         return f;
     }
 
-    fn set_field_indices(self: &mut Self, hfindices: Vec<(dissector::PacketField, epan::proto::HFIndex)>)
-    {
+    fn set_field_indices(
+        self: &mut Self,
+        hfindices: Vec<(dissector::PacketField, epan::proto::HFIndex)>,
+    ) {
         self.field_mapping = hfindices;
     }
 
-    fn dissect(self: &mut Self, proto: &mut epan::ProtoTree, tvb: &mut epan::TVB) {
+    fn dissect(self: &mut Self, proto: &mut epan::ProtoTree, tvb: &mut epan::TVB) -> usize {
         //~ return self.dissect_displaylight(dissection);
         //~ println!("bytes: {:?}", tvb.bytes(0));
-        let item = proto.add_item(self.get_id(&MyDissector::FIELD2), tvb, 0, 1, epan::proto::Encoding::BIG_ENDIAN);
+        proto.add_item(
+            self.get_id(&MyDissector::FIELD2),
+            tvb,
+            0,
+            1,
+            epan::proto::Encoding::BIG_ENDIAN,
+        );
+        proto.add_item(
+            self.get_id(&MyDissector::FIELD3),
+            tvb,
+            1,
+            2,
+            epan::proto::Encoding::BIG_ENDIAN,
+        );
+        tvb.reported_length()
     }
 
     fn get_protocol_name(self: &Self) -> (&'static str, &'static str, &'static str) {
@@ -101,22 +113,23 @@ impl dissector::Dissector for MyDissector {
     }
 
     fn get_registration(self: &Self) -> Vec<dissector::Registration> {
+        // usb makes a table;     product_to_dissector = register_dissector_table("usb.product",   "USB product",  proto_usb, FT_UINT32, BASE_HEX);
         return vec![
             //~ dissector::Registration::Post,
             dissector::Registration::DecodeAs {
-                abbrev: "usb.product"
+                abbrev: "usb.product",
             },
             dissector::Registration::UInt {
                 abbrev: "usb.product",
-                pattern: 0x15320226
+                pattern: 0x15320226,
             },
             dissector::Registration::UInt {
                 abbrev: "usb.device",
-                pattern: 0x00030003
+                pattern: 0x00030003,
             },
             //~ dissector::Registration::UIntRange {
-                //~ abbrev: "usb.product",
-                //~ ranges: vec![(0x15320000, 0x1532FFFF)]
+            //~ abbrev: "usb.product",
+            //~ ranges: vec![(0x15320000, 0x1532FFFF)]
             //~ },
         ];
     }
@@ -125,6 +138,8 @@ impl dissector::Dissector for MyDissector {
 // This function is the main entry point where we can do our setup.
 #[no_mangle]
 pub fn plugin_register() {
-    let z = Box::new(MyDissector {field_mapping: Vec::new()});
-    dissector::setup(z);
+    let z = Box::new(MyDissector {
+        field_mapping: Vec::new(),
+    });
+    plugin::setup(z);
 }

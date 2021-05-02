@@ -1,9 +1,7 @@
-
 #[repr(C)]
 pub struct tvbuff_t {
     _private: [u8; 0],
 }
-
 
 #[link(name = "wireshark")]
 extern "C" {

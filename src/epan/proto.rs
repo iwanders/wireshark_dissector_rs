@@ -1,4 +1,3 @@
-
 #![allow(non_camel_case_types)]
 #![allow(dead_code)]
 
@@ -7,8 +6,7 @@ use super::tvbuff::tvbuff_t;
 
 #[repr(u32)]
 #[derive(Clone, Copy, Debug)]
-pub enum Encoding
-{
+pub enum Encoding {
     BIG_ENDIAN = 0x00000000,
     LITTLE_ENDIAN = 0x80000000,
     STR_NUM = 0x01000000,
@@ -19,8 +17,7 @@ pub enum Encoding
 
 #[repr(u32)]
 #[derive(Clone, Copy, Debug)]
-pub enum FieldDisplay
-{
+pub enum FieldDisplay {
     BASE_NONE = 0,
     BASE_DEC = 1,
     BASE_HEX = 2,
@@ -41,9 +38,6 @@ impl Default for hf_ref_type {
     }
 }
 unsafe impl Send for hf_ref_type {}
-
-
-
 
 #[repr(C)]
 pub struct proto_tree {
@@ -98,7 +92,7 @@ pub struct HFIndex(pub i32);
 #[derive(Debug)]
 #[repr(C)]
 pub struct hf_register_info {
-    pub p_id: *mut HFIndex,            // written to by register() function
+    pub p_id: *mut HFIndex,        // written to by register() function
     pub hfinfo: header_field_info, // < the field info to be registered
 }
 impl Default for hf_register_info {
@@ -109,8 +103,6 @@ impl Default for hf_register_info {
         }
     }
 }
-
-
 
 #[repr(C)]
 pub struct proto_plugin {
@@ -127,8 +119,6 @@ impl Default for proto_plugin {
     }
 }
 
-
-
 #[link(name = "wireshark")]
 extern "C" {
 
@@ -138,7 +128,6 @@ extern "C" {
         filter_name: *const libc::c_char,
     ) -> i32;
     pub fn proto_register_plugin(plugin: *const proto_plugin);
-
 
     pub fn proto_register_field_array(parent: i32, hf: *mut hf_register_info, num_records: i32);
 

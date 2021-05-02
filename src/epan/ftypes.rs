@@ -1,5 +1,3 @@
-
-
 #[repr(C)]
 #[allow(dead_code)]
 #[derive(Debug, Copy, Clone)]
@@ -33,4 +31,3 @@ impl Default for ftenum {
 }
 
 unsafe impl Send for ftenum {}
-
