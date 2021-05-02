@@ -60,16 +60,16 @@ impl MyDissector {
 }
 impl MyDissector
 {
-    fn get_id(self: &Self, name: &'static str) -> epan::proto::HFIndex
+    fn get_id(self: &Self, desired_field: &dissector::PacketField) -> epan::proto::HFIndex
     {
         for (field, index) in &self.field_mapping
         {
-            if field.name == name
+            if field.name == desired_field.name
             {
                 return *index;
             }
         }
-        panic!("ccouldnt find field {}", name);
+        panic!("Couldn't find field id for {:?}", desired_field);
     }
 }
 
@@ -92,22 +92,8 @@ impl dissector::Dissector for MyDissector {
 
     fn dissect(self: &mut Self, proto: &mut epan::ProtoTree, tvb: &mut epan::TVB) {
         //~ return self.dissect_displaylight(dissection);
-        let index = self.get_id(&MyDissector::FIELD2.name);
-        //~ println!("Index: {:?}", index);
         //~ println!("bytes: {:?}", tvb.bytes(0));
-        let item = proto.add_item(index, tvb, 0, 1, epan::proto::Encoding::BIG_ENDIAN);
-        //~ println!("Retval: {:?}", retval);
-        //~ println!("item: {:?}", item);
-        //~ let current = dissection.peek();
-        //~ println!("current: {:?}", current);
-        //~ dissection.dissect(&MyDissector::FIELD1.name);
-        //~ dissection.advance(5);
-        //~ dissection.dissect(&MyDissector::FIELD2.name);
-        //~ dissection.dissect(&MyDissector::FIELD3.name);
-        //~ dissection.dissect(&MyDissector::FIELD32.name);
-        //~ dissection.dissect(&MyDissector::FIELD64.name);
-        // do cool rust things, pass entities into the display.
-        //~ panic!("jdsfkjsldf");
+        let item = proto.add_item(self.get_id(&MyDissector::FIELD2), tvb, 0, 1, epan::proto::Encoding::BIG_ENDIAN);
     }
 
     fn get_protocol_name(self: &Self) -> (&'static str, &'static str, &'static str) {

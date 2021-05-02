@@ -69,18 +69,21 @@ pub enum Registration {
     DecodeAs { abbrev: &'static str },
 }
 
+use std::cell::RefCell;
+static mut dissector_ptr : Option<Box<dyn Dissector>> = None;
+static mut hf_entries : Option<Vec<epan::proto::hf_register_info>> = None;
+static mut proto_id : i32 = -1;
 
-static mut dissector_ptr : Option<*mut dyn Dissector> = None;
 pub fn setup(d: Box<dyn Dissector>)
 {
     unsafe
     {
-        dissector_ptr = Some(Box::leak(d));
         let mut plugin_handle_box: Box<epan::proto::proto_plugin> = Box::new(Default::default());
         plugin_handle_box.register_protoinfo = Some(proto_register_protoinfo);
         plugin_handle_box.register_handoff = Some(proto_register_handoff);
         let ptr_to_plugin = Box::leak(plugin_handle_box); // Need this to persist, but we don't ever need it anymore
         epan::proto::proto_register_plugin(ptr_to_plugin);
+        dissector_ptr = Some(d);
     }
 }
 
@@ -93,29 +96,24 @@ extern "C" fn dissect_protocol_function(
     _data: *mut libc::c_void,
 ) -> u32 {
 
-    //~ let dissector: Option<Rc<dyn Dissector>>;
     let mut dissector_tmp : Option<Box<dyn Dissector>> = None;
 
     // Copy our dissector pointer
     unsafe {
-        //~ let state = &mut STATIC_DISSECTOR.as_mut().unwrap();
-        //~ dissector = Some(Rc::clone(&state.ptr));
-        dissector_tmp = Some(Box::from_raw(dissector_ptr.unwrap()));
+        dissector_tmp = Some(dissector_ptr.take().unwrap());
+        //~ dissector_tmp = Some(dissector_ptr.unwrap());
     }
-    // Let the dissector do its thing!
 
     let mut proto: epan::ProtoTree = epan::ProtoTree::from_ptr(tree);
     let mut tvb: epan::TVB = epan::TVB::from_ptr(tvb);
     dissector_tmp.as_mut().unwrap().dissect(&mut proto, &mut tvb);
 
     unsafe {
-        dissector_ptr = Some(Box::leak(dissector_tmp.unwrap()));
+        dissector_ptr = Some(dissector_tmp.unwrap());
     }
     return tvb.reported_length() as u32;
 }
 
-static mut hf_entries : Option<Vec<epan::proto::hf_register_info>> = None;
-static mut proto_id : i32 = -1;
 
 extern "C" fn proto_register_protoinfo() {
     println!("proto_register_hello");
@@ -127,8 +125,9 @@ extern "C" fn proto_register_protoinfo() {
     }
 
     unsafe {
-        dissector_tmp_option = Some(Box::from_raw(dissector_ptr.unwrap()));
+        dissector_tmp_option = Some(dissector_ptr.take().unwrap());
     }
+
     {
         let dissector_tmp = dissector_tmp_option.as_mut().unwrap();
 
@@ -175,7 +174,7 @@ extern "C" fn proto_register_protoinfo() {
     }
 
     unsafe {
-        dissector_ptr = Some(Box::leak(dissector_tmp_option.unwrap()));
+        dissector_ptr = Some(dissector_tmp_option.unwrap());
     }
 }
 
@@ -188,13 +187,11 @@ extern "C" fn proto_register_handoff() {
     let mut dissector_tmp_option : Option<Box<dyn Dissector>> = None;
     unsafe
     {
-        dissector_tmp_option = Some(Box::from_raw(dissector_ptr.unwrap()));
+        dissector_tmp_option = Some(dissector_ptr.take().unwrap());
     }
 
     unsafe {
         let dissector_tmp = dissector_tmp_option.as_mut().unwrap();
-        //~ let state = &mut STATIC_DISSECTOR.as_mut().unwrap(); // less wordy.
-        
 
         let dissector_handle =
             epan::packet::create_dissector_handle(Some(dissect_protocol_function), proto_id);
@@ -242,7 +239,7 @@ extern "C" fn proto_register_handoff() {
     }
 
     unsafe {
-        dissector_ptr = Some(Box::leak(dissector_tmp_option.unwrap()));
+        dissector_ptr = Some(dissector_tmp_option.unwrap());
     }
 }
 
