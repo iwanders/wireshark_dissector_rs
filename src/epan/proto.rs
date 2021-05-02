@@ -91,17 +91,19 @@ impl Default for header_field_info {
     }
 }
 
-
+#[derive(Clone, Copy)]
+#[repr(transparent)]
+pub struct HFIndex(pub i32);
 
 #[repr(C)]
 pub struct hf_register_info {
-    pub p_id: *mut i32,            // written to by register() function
+    pub p_id: *mut HFIndex,            // written to by register() function
     pub hfinfo: header_field_info, // < the field info to be registered
 }
 impl Default for hf_register_info {
     fn default() -> Self {
         hf_register_info {
-            p_id: 0 as *mut i32,
+            p_id: 0 as *mut HFIndex,
             hfinfo: Default::default(),
         }
     }
@@ -143,7 +145,7 @@ extern "C" {
 
     pub fn proto_tree_add_protocol_format(
         tree: *mut proto_tree,
-        hfindex: i32,
+        hfindex: HFIndex,
         tvb: *mut tvbuff_t,
         start: i32,
         length: i32,
@@ -153,7 +155,7 @@ extern "C" {
 
     pub fn proto_tree_add_item(
         tree: *mut proto_tree,
-        hfindex: i32,
+        hfindex: HFIndex,
         tvb: *mut tvbuff_t,
         start: i32,
         length: i32,
@@ -162,7 +164,7 @@ extern "C" {
 
     pub fn proto_tree_add_item_ret_int(
         tree: *mut proto_tree,
-        hfindex: i32,
+        hfindex: HFIndex,
         tvb: *mut tvbuff_t,
         start: i32,
         length: i32,
@@ -172,7 +174,7 @@ extern "C" {
 
     pub fn proto_tree_add_item_ret_uint64(
         tree: *mut proto_tree,
-        hfindex: i32,
+        hfindex: HFIndex,
         tvb: *mut tvbuff_t,
         start: i32,
         length: i32,
@@ -182,7 +184,7 @@ extern "C" {
 
     pub fn proto_tree_add_item_ret_uint(
         tree: *mut proto_tree,
-        hfindex: i32,
+        hfindex: HFIndex,
         tvb: *mut tvbuff_t,
         start: i32,
         length: i32,

@@ -29,3 +29,43 @@ pub mod range;
 pub mod tvbuff;
 pub mod packet;
 pub mod packet_info;
+
+/*
+    Dissector
+        get_fields()
+        get_tree()
+        get_protocol_name()
+        get_registration()
+
+    ProtoTree
+        add_**(field_index, tvb, pos, len, encoding, ....) -> returns ProtoItem
+        add_boolean(field_index,tvb, start, 
+        add_item_ret_uint64 -> returns (ProtoItem, u64)
+
+    PacketInfo?
+        Lets ignore for now.
+
+    TVB
+        // Raw peeking into the buffer.
+
+    ProtoItem
+        // Things like:
+        proto_item_set_text(proto_item *ti, const char *format, ...) G_GNUC_PRINTF(2,3);
+        proto_item_add_subtree(tree_index) -> ProtoTree
+
+    
+ */
+
+pub trait ProtoTree
+{
+}
+
+
+pub trait ProtoItem
+{
+}
+
+pub trait TVB
+{
+}
+

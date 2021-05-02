@@ -9,31 +9,6 @@ use crate::epan;
 use crate::epan as wireshark;
 use crate::epan::proto::Encoding;
 
-/*
-    Dissector
-        get_fields()
-        get_tree()
-        get_protocol_name()
-        get_registration()
-
-    ProtoTree
-        add_**(field_index, tvb, pos, len, encoding, ....) -> returns ProtoItem
-        add_boolean(field_index,tvb, start, 
-        add_item_ret_uint64 -> returns (ProtoItem, u64)
-
-    PacketInfo?
-        Lets ignore for now.
-
-    TVB
-        // Raw peeking into the buffer.
-
-    ProtoItem
-        // Things like:
-        proto_item_set_text(proto_item *ti, const char *format, ...) G_GNUC_PRINTF(2,3);
-        proto_item_add_subtree(tree_index) -> ProtoTree
-
-    
- */
 
 //-------------------------------------------------
 /// The object we interact with when perfoming a dissection, allows querying the data and visualising it.
@@ -183,7 +158,7 @@ struct UnsafeDissectorHolder {
 
     // The things below are usually static members in wireshark plugins.
     proto_id: i32,
-    field_ids: Vec<i32>,
+    field_ids: Vec<epan::proto::HFIndex>,
     fields_input: Vec<PacketField>,
     fields_wireshark: Vec<epan::proto::hf_register_info>,
     plugin_handle: *mut epan::proto::proto_plugin,
@@ -236,7 +211,7 @@ struct EpanDissection {
 
     // Our own stuff
     pub pos: usize,
-    pub field_ids: Vec<i32>,
+    pub field_ids: Vec<epan::proto::HFIndex>,
     pub fields_input: Vec<PacketField>,
 }
 
@@ -251,7 +226,7 @@ impl EpanDissection {
         panic!("Could not find field id for {}.", item);
     }
     /// Helper to find the hf index this display item is associated with.
-    fn find_field_wireshark_id(self: &Self, item: &str) -> i32 {
+    fn find_field_wireshark_id(self: &Self, item: &str) -> epan::proto::HFIndex {
         return self.field_ids[self.find_field(item)];
     }
 }
@@ -435,10 +410,10 @@ extern "C" fn proto_register_protoinfo() {
             "Registering {} fields in the protocol register.",
             fields.len()
         );
-        state.field_ids.resize(fields.len(), -1);
+        state.field_ids.resize(fields.len(), epan::proto::HFIndex(-1));
         for i in 0..fields.len() {
             state.fields_wireshark.push(epan::proto::hf_register_info {
-                p_id: &mut state.field_ids[i] as *mut i32,
+                p_id: &mut state.field_ids[i],
                 hfinfo: fields[i].into(),
             });
         }
