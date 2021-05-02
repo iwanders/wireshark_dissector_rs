@@ -43,10 +43,7 @@ extern "C" fn dissect_protocol_function(
     let mut tvb: epan::TVB = epan::TVB::from_ptr(tvb);
 
     // Call the dissector.
-    let used_bytes = dissector_tmp
-        .as_mut()
-        .unwrap()
-        .dissect(&mut proto, &mut tvb);
+    let used_bytes = dissector_tmp.as_mut().unwrap().dissect(&mut proto, &mut tvb);
 
     // Move the pointer back.
     unsafe {
@@ -132,8 +129,7 @@ extern "C" fn proto_register_handoff() {
     unsafe {
         let dissector_tmp = dissector_tmp_option.as_mut().unwrap();
 
-        let dissector_handle =
-            epan::packet::create_dissector_handle(Some(dissect_protocol_function), PROTO_ID);
+        let dissector_handle = epan::packet::create_dissector_handle(Some(dissect_protocol_function), PROTO_ID);
 
         for registration in dissector_tmp.get_registration() {
             match registration {
@@ -141,11 +137,7 @@ extern "C" fn proto_register_handoff() {
                     epan::packet::register_postdissector(dissector_handle);
                 }
                 dissector::Registration::UInt { abbrev, pattern } => {
-                    epan::packet::dissector_add_uint(
-                        util::perm_string_ptr(abbrev),
-                        pattern,
-                        dissector_handle,
-                    );
+                    epan::packet::dissector_add_uint(util::perm_string_ptr(abbrev), pattern, dissector_handle);
                 }
 
                 dissector::Registration::UIntRange { abbrev, ranges } => {
@@ -164,10 +156,7 @@ extern "C" fn proto_register_handoff() {
                 }
 
                 dissector::Registration::DecodeAs { abbrev } => {
-                    epan::packet::dissector_add_for_decode_as(
-                        util::perm_string_ptr(abbrev),
-                        dissector_handle,
-                    );
+                    epan::packet::dissector_add_for_decode_as(util::perm_string_ptr(abbrev), dissector_handle);
                 }
             }
         }

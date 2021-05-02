@@ -107,7 +107,7 @@ impl Default for hf_register_info {
 #[repr(C)]
 pub struct proto_plugin {
     pub register_protoinfo: Option<extern "C" fn()>, /* routine to call to register protocol information */
-    pub register_handoff: Option<extern "C" fn()>, /* routine to call to register protocol information */
+    pub register_handoff: Option<extern "C" fn()>,   /* routine to call to register protocol information */
 }
 
 impl Default for proto_plugin {

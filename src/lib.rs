@@ -81,10 +81,7 @@ impl dissector::Dissector for MyDissector {
         return f;
     }
 
-    fn set_field_indices(
-        self: &mut Self,
-        hfindices: Vec<(dissector::PacketField, epan::proto::HFIndex)>,
-    ) {
+    fn set_field_indices(self: &mut Self, hfindices: Vec<(dissector::PacketField, epan::proto::HFIndex)>) {
         self.field_mapping = hfindices;
     }
 
@@ -116,9 +113,7 @@ impl dissector::Dissector for MyDissector {
         // usb makes a table;     product_to_dissector = register_dissector_table("usb.product",   "USB product",  proto_usb, FT_UINT32, BASE_HEX);
         return vec![
             //~ dissector::Registration::Post,
-            dissector::Registration::DecodeAs {
-                abbrev: "usb.product",
-            },
+            dissector::Registration::DecodeAs { abbrev: "usb.product" },
             dissector::Registration::UInt {
                 abbrev: "usb.product",
                 pattern: 0x15320226,

@@ -72,14 +72,7 @@ impl ProtoTree {
     ) -> ProtoItem {
         unsafe {
             ProtoItem {
-                item: proto::proto_tree_add_item(
-                    self.tree,
-                    hfindex,
-                    tvb.into(),
-                    start,
-                    length,
-                    encoding,
-                ),
+                item: proto::proto_tree_add_item(self.tree, hfindex, tvb.into(), start, length, encoding),
             }
         }
     }
