@@ -91,7 +91,7 @@ impl Default for header_field_info {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 #[repr(transparent)]
 pub struct HFIndex(pub i32);
 

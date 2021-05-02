@@ -12,7 +12,7 @@ pub trait Dissector {
 
     /// After the fields are registered, this function is called to provide the new HFIndices that should be used
     /// to refer to the registered fields.
-    fn set_field_indices(self: &Self, hfindices: Vec<(PacketField, epan::proto::HFIndex)>);
+    fn set_field_indices(self: &mut Self, hfindices: Vec<(PacketField, epan::proto::HFIndex)>);
 
     /// Called when there is somethign to dissect.
     fn dissect(self: &mut Self, proto: &mut epan::ProtoTree, tvb: &mut epan::TVB);
@@ -217,6 +217,7 @@ extern "C" fn proto_register_protoinfo() {
             {
                 hfindices.push((fields_input[i], field_ids[i]));
             }
+            println!("fields: {:?}", fields);
             dissector_tmp.set_field_indices(hfindices);
         }
     }
