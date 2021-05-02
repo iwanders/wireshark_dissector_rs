@@ -7,7 +7,6 @@ Todo:
 */
 
 // We can probably hook; https://github.com/wireshark/wireshark/blob/ebfbf958f6930b2dad486b33277470e8368dc111/epan/dissectors/packet-usb.c#L3516-L3518
-extern crate bitflags;
 extern crate libc;
 
 #[macro_use]
@@ -23,7 +22,9 @@ pub mod epan;
 type FieldType = dissector::FieldType;
 type FieldDisplay = dissector::FieldDisplay;
 
-struct MyDissector {}
+struct MyDissector {
+    field_mapping : Vec<(dissector::PacketField, epan::proto::HFIndex)>
+}
 impl MyDissector {
     const FIELD1: dissector::PacketField = dissector::PacketField {
         name: "protoname",
@@ -55,17 +56,10 @@ impl MyDissector {
         field_type: FieldType::UINT64,
         display: FieldDisplay::BASE_HEX,
     };
+    
 }
 impl MyDissector
 {
-
-    fn dissect_displaylight(self: &Self, dissection: &mut dyn dissector::Dissection) 
-    {
-        dissection.dissect(&MyDissector::FIELD2.name);
-        dissection.advance(3);
-        dissection.dissect(&MyDissector::FIELD2.name);
-        dissection.dissect(&MyDissector::FIELD2.name);
-    }
 }
 
 impl dissector::Dissector for MyDissector {
@@ -80,16 +74,22 @@ impl dissector::Dissector for MyDissector {
         return f;
     }
 
-    fn dissect(self: &Self, dissection: &mut dyn dissector::Dissection) {
-        return self.dissect_displaylight(dissection);
-        let current = dissection.peek();
-        println!("current: {:?}", current);
-        dissection.dissect(&MyDissector::FIELD1.name);
-        dissection.advance(5);
-        dissection.dissect(&MyDissector::FIELD2.name);
-        dissection.dissect(&MyDissector::FIELD3.name);
-        dissection.dissect(&MyDissector::FIELD32.name);
-        dissection.dissect(&MyDissector::FIELD64.name);
+    fn set_field_indices(self: &Self, hfindices: Vec<(dissector::PacketField, epan::proto::HFIndex)>)
+    {
+        //~ self.field_mapping = hfindices;
+    }
+
+    fn dissect(self: &Self, proto: &mut epan::ProtoTree, tvb: &mut epan::TVB) {
+        //~ return self.dissect_displaylight(dissection);
+        //~ proto.add_item_ret_int(
+        //~ let current = dissection.peek();
+        //~ println!("current: {:?}", current);
+        //~ dissection.dissect(&MyDissector::FIELD1.name);
+        //~ dissection.advance(5);
+        //~ dissection.dissect(&MyDissector::FIELD2.name);
+        //~ dissection.dissect(&MyDissector::FIELD3.name);
+        //~ dissection.dissect(&MyDissector::FIELD32.name);
+        //~ dissection.dissect(&MyDissector::FIELD64.name);
         // do cool rust things, pass entities into the display.
     }
 
@@ -123,6 +123,6 @@ impl dissector::Dissector for MyDissector {
 #[no_mangle]
 pub fn plugin_register() {
     use std::rc::Rc;
-    let z = Rc::new(MyDissector {});
+    let z = Rc::new(MyDissector {field_mapping: Vec::new()});
     dissector::setup(z);
 }

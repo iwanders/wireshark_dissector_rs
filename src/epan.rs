@@ -56,16 +56,88 @@ pub mod packet_info;
     
  */
 
-pub trait ProtoTree
+
+pub struct ProtoTree
 {
+    tree: *mut proto::proto_tree,
+}
+
+impl ProtoTree
+{
+    pub fn from_ptr(tree: *mut proto::proto_tree) -> ProtoTree
+    {
+        return ProtoTree{tree: tree};
+    }
+    pub fn add_item(self: &mut Self, hfindex: proto::HFIndex, tvb: &mut TVB, start: i32, length: i32, encoding: proto::Encoding) -> ProtoItem
+    {
+        unsafe {
+            ProtoItem{item: proto::proto_tree_add_item(self.tree, hfindex, tvb.into(), start, length, encoding)}
+        }
+    }
+
+    pub fn add_item_ret_int(self: &mut Self, hfindex: proto::HFIndex, tvb: &mut TVB, start: i32, length: i32, encoding: proto::Encoding) -> (ProtoItem, i32)
+    {
+        let mut retval: i32 = 0;
+        unsafe {
+            return (ProtoItem{item: proto::proto_tree_add_item_ret_int(
+                self.tree,
+                hfindex,
+                tvb.into(),
+                start as i32,
+                length as i32,
+                encoding,
+                &mut retval as *mut i32,
+            )}, retval);
+        }
+    }
 }
 
 
-pub trait ProtoItem
+pub struct ProtoItem
 {
+    item: *mut proto::proto_item,
 }
 
-pub trait TVB
+pub struct TVB
 {
+    tvb: *mut tvbuff::tvbuff_t
+}
+impl TVB
+{
+
+    pub fn from_ptr(tvb: *mut tvbuff::tvbuff_t) -> TVB
+    {
+        return TVB{tvb: tvb};
+    }
+    pub fn bytes(self: &mut Self, offset: usize) -> &[u8]
+    {
+        unsafe
+        {
+            let available_length = tvbuff::tvb_reported_length_remaining(self.tvb, offset as i32);
+            let data_ptr = tvbuff::tvb_get_ptr(self.tvb, offset as i32, available_length as i32);
+            return std::slice::from_raw_parts(data_ptr, available_length as usize);
+        };
+    }
+    pub fn reported_length(self: &mut Self) -> usize
+    {
+        unsafe
+        {
+            return tvbuff::tvb_reported_length(self.tvb) as usize;
+        }
+    }
+
+    pub fn tvb_reported_length_remaining(self: &mut Self, offset: usize) -> usize
+    {
+        unsafe
+        {
+            return tvbuff::tvb_reported_length_remaining(self.tvb, offset as i32) as usize;
+        }
+    }
+}
+
+impl From<&mut TVB> for *mut tvbuff::tvbuff_t {
+    fn from(field: &mut TVB) -> Self {
+        return field.tvb;
+    }
 }
 

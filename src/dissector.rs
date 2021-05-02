@@ -3,73 +3,6 @@
 use crate::util;
 use crate::epan;
 
-//~ pub mod epan;
-//~ mod epan;
-
-use crate::epan as wireshark;
-use crate::epan::proto::Encoding;
-
-
-//-------------------------------------------------
-/// The object we interact with when perfoming a dissection, allows querying the data and visualising it.
-pub trait Dissection {
-    // peeks
-    fn peek_u8(self: &mut Self) -> Option<u8>;
-    fn peek(self: &mut Self) -> &[u8]; // The one peek method to rule them all...
-
-    // Manual advance
-    fn advance(self: &mut Self, amount: usize);
-
-    // Adds display and advanced by this amount.
-    fn dissect_i8(self: &mut Self, field: &str) -> i8;
-    fn dissect_i16(self: &mut Self, field: &str) -> i16;
-    fn dissect_i32(self: &mut Self, field: &str) -> i32;
-
-    fn dissect_u8(self: &mut Self, field: &str) -> u8;
-    fn dissect_u16(self: &mut Self, field: &str) -> u16;
-    fn dissect_u32(self: &mut Self, field: &str) -> u32;
-    fn dissect_u64(self: &mut Self, field: &str) -> u64;
-
-    fn dissect_proto(self: &mut Self, item: &str);
-
-    //~ fn get_display_item(self: &mut Self, item: &str) -> &dyn DisplayItem;
-    fn get_field(self: &mut Self, item: &str) -> &PacketField;
-
-    // Disect based on the input display item.
-    fn dissect(self: &mut Self, field: &str) {
-        let item = self.get_field(field);
-        match item.field_type {
-            FieldType::PROTOCOL => {
-                self.dissect_proto(field);
-            }
-
-            FieldType::INT8 => {
-                self.dissect_i8(field);
-            }
-            FieldType::INT16 => {
-                self.dissect_i16(field);
-            }
-            FieldType::INT32 => {
-                self.dissect_i32(field);
-            }
-
-            FieldType::UINT8 => {
-                self.dissect_u8(field);
-            }
-            FieldType::UINT16 => {
-                self.dissect_u16(field);
-            }
-            FieldType::UINT32 => {
-                self.dissect_u32(field);
-            }
-            FieldType::UINT64 => {
-                self.dissect_u64(field);
-            }
-            _ => {}
-        }
-    }
-}
-
 //-------------------------------------------------
 
 /// The trait the dissector must adhere to.
@@ -77,8 +10,12 @@ pub trait Dissector {
     /// This function must return a vector of all the possible fields the dissector will end up using.
     fn get_fields(self: &Self) -> Vec<PacketField>;
 
+    /// After the fields are registered, this function is called to provide the new HFIndices that should be used
+    /// to refer to the registered fields.
+    fn set_field_indices(self: &Self, hfindices: Vec<(PacketField, epan::proto::HFIndex)>);
+
     /// Called when there is somethign to dissect.
-    fn dissect(self: &Self, dissection: &mut dyn Dissection);
+    fn dissect(self: &Self, proto: &mut epan::ProtoTree, tvb: &mut epan::TVB);
 
     /// Full name, short_name, filter_name
     fn get_protocol_name(self: &Self) -> (&'static str, &'static str, &'static str);
@@ -88,19 +25,6 @@ pub trait Dissector {
     }
 }
 
-/// Trivial implementation for a DisplayItem.
-//~ pub struct DisplayItemField {
-//~ pub field: PacketField,
-//~ }
-//~ impl DisplayItem for DisplayItemField {
-//~ fn get_field(self: &Self) -> PacketField {
-//~ return self.field;
-//~ }
-//~ }
-//~ /// Function to convert a PacketField into a DisplayItemField
-//~ pub fn field_to_display(thing: PacketField) -> DisplayItemField {
-//~ return DisplayItemField { field: thing };
-//~ }
 
 //-------------------------------------------------
 pub type FieldType = epan::ftypes::ftenum;
@@ -113,11 +37,6 @@ pub struct PacketField {
     pub abbrev: &'static str,
     pub field_type: FieldType,
     pub display: FieldDisplay,
-}
-impl PacketField {
-    //~ pub fn display(self: &Self) -> DisplayItemField {
-    //~ DisplayItemField { field: *self }
-    //~ }
 }
 
 
@@ -200,177 +119,12 @@ pub fn setup(d: Rc<dyn Dissector>) {
 }
 
 
-// https://github.com/wireshark/wireshark/blob/master/epan/dissectors/packet-g723.c
-
-/// The implementation of Dissection that will interface with wireshark.
-struct EpanDissection {
-    // Wireshark stuff
-    pub tvb: *mut epan::tvbuff::tvbuff_t,
-    pub packet_info: *mut epan::packet_info::packet_info,
-    pub tree: *mut epan::proto::proto_tree,
-
-    // Our own stuff
-    pub pos: usize,
-    pub field_ids: Vec<epan::proto::HFIndex>,
-    pub fields_input: Vec<PacketField>,
-}
-
-impl EpanDissection {
-    fn find_field(self: &Self, item: &str) -> usize {
-        for i in 0..self.fields_input.len() {
-            if item == self.fields_input[i].name {
-                return i;
-            }
-        }
-        // panic!?
-        panic!("Could not find field id for {}.", item);
-    }
-    /// Helper to find the hf index this display item is associated with.
-    fn find_field_wireshark_id(self: &Self, item: &str) -> epan::proto::HFIndex {
-        return self.field_ids[self.find_field(item)];
-    }
-}
-
-impl EpanDissection {
-    fn dissect_u32(self: &mut Self, item: &str, size: usize) -> u32 {
-        let field_id = self.find_field_wireshark_id(item);
-        let mut retval: u32 = 0;
-        unsafe {
-            epan::proto::proto_tree_add_item_ret_uint(
-                self.tree,
-                field_id,
-                self.tvb,
-                self.pos as i32,
-                size as i32,
-                epan::proto::Encoding::BIG_ENDIAN,
-                &mut retval as *mut u32,
-            );
-        }
-        self.pos += size;
-        return retval;
-    }
-    fn dissect_u64(self: &mut Self, item: &str, size: usize) -> u64 {
-        let field_id = self.find_field_wireshark_id(item);
-        let mut retval: u64 = 0;
-        unsafe {
-            epan::proto::proto_tree_add_item_ret_uint64(
-                self.tree,
-                field_id,
-                self.tvb,
-                self.pos as i32,
-                size as i32,
-                epan::proto::Encoding::BIG_ENDIAN,
-                &mut retval as *mut u64,
-            );
-        }
-        self.pos += size;
-        return retval;
-    }
-
-    fn dissect_i32(self: &mut Self, item: &str, size: usize) -> i32 {
-        let field_id = self.find_field_wireshark_id(item);
-        let mut retval: i32 = 0;
-        unsafe {
-            epan::proto::proto_tree_add_item_ret_int(
-                self.tree,
-                field_id,
-                self.tvb,
-                self.pos as i32,
-                size as i32,
-                epan::proto::Encoding::BIG_ENDIAN,
-                &mut retval as *mut i32,
-            );
-        }
-        self.pos += size;
-        return retval;
-    }
-}
-
-impl Dissection for EpanDissection {
-    fn get_field(self: &mut Self, item: &str) -> &PacketField {
-        let item_id = self.find_field(item);
-        return &self.fields_input[item_id as usize];
-    }
-
-    fn dissect_proto(self: &mut Self, item: &str) {
-        let field_id = self.find_field_wireshark_id(item);
-        unsafe {
-            epan::proto::proto_tree_add_item(
-                self.tree,
-                field_id,
-                self.tvb,
-                self.pos as i32,
-                0 as i32,
-                epan::proto::Encoding::BIG_ENDIAN,
-            );
-        }
-        self.pos += 0;
-    }
-
-    fn peek_u8(self: &mut Self) -> Option<u8>
-    {
-        return None;
-    }
-
-    fn peek(self: &mut Self) -> &[u8]
-    {
-        unsafe
-        {
-            // docs use gint available = tvb_reported_length_remaining(tvb, offset);
-            let available_length = epan::tvbuff::tvb_reported_length_remaining(self.tvb, self.pos as i32);
-            let data_ptr = epan::tvbuff::tvb_get_ptr(self.tvb, self.pos as i32, available_length as i32);
-            return std::slice::from_raw_parts(data_ptr, available_length as usize);
-        };
-    }
-
-    fn dissect_i8(self: &mut Self, item: &str) -> i8 {
-        self.dissect_i32(item, std::mem::size_of::<i8>()) as i8
-    }
-
-    fn dissect_i16(self: &mut Self, item: &str) -> i16 {
-        self.dissect_i32(item, std::mem::size_of::<i16>()) as i16
-    }
-    fn dissect_i32(self: &mut Self, item: &str) -> i32 {
-        self.dissect_i32(item, std::mem::size_of::<i32>()) as i32
-    }
-
-    fn dissect_u8(self: &mut Self, item: &str) -> u8 {
-        self.dissect_u32(item, std::mem::size_of::<u8>()) as u8
-    }
-
-    fn dissect_u16(self: &mut Self, item: &str) -> u16 {
-        self.dissect_u32(item, std::mem::size_of::<u16>()) as u16
-    }
-
-    fn dissect_u32(self: &mut Self, item: &str) -> u32 {
-        self.dissect_u32(item, std::mem::size_of::<u32>()) as u32
-    }
-
-    fn dissect_u64(self: &mut Self, item: &str) -> u64 {
-        self.dissect_u64(item, std::mem::size_of::<u64>()) as u64
-    }
-
-    fn advance(self: &mut Self, amount: usize) {
-        self.pos += amount;
-    }
-}
-
 extern "C" fn dissect_protocol_function(
     tvb: *mut epan::tvbuff::tvbuff_t,
     packet_info: *mut epan::packet_info::packet_info,
     tree: *mut epan::proto::proto_tree,
     _data: *mut libc::c_void,
 ) -> u32 {
-    // Construct our dissection wrapper
-    let mut dissection: EpanDissection = EpanDissection {
-        tvb: tvb,
-        tree: tree,
-        packet_info: packet_info,
-
-        pos: 0,
-        fields_input: Vec::new(),
-        field_ids: Vec::new(),
-    };
 
     let dissector: Option<Rc<dyn Dissector>>;
 
@@ -378,15 +132,14 @@ extern "C" fn dissect_protocol_function(
     unsafe {
         let state = &mut STATIC_DISSECTOR.as_mut().unwrap();
         dissector = Some(Rc::clone(&state.ptr));
-        dissection.fields_input = state.fields_input.clone();
-        dissection.field_ids = state.field_ids.clone();
     }
     // Let the dissector do its thing!
-    dissector.unwrap().dissect(&mut dissection);
 
-    unsafe {
-        return epan::tvbuff::tvb_reported_length(tvb) as u32;
-    }
+    let mut proto: epan::ProtoTree = epan::ProtoTree::from_ptr(tree);
+    let mut tvb: epan::TVB = epan::TVB::from_ptr(tvb);
+    dissector.unwrap().dissect(&mut proto, &mut tvb);
+
+    return tvb.reported_length() as u32;
 }
 
 extern "C" fn proto_register_protoinfo() {
@@ -417,9 +170,17 @@ extern "C" fn proto_register_protoinfo() {
                 hfinfo: fields[i].into(),
             });
         }
-
+        println!("state.fields_wireshark: {:?}", state.fields_wireshark);
         let rawptr = &mut state.fields_wireshark[0] as *mut epan::proto::hf_register_info;
         epan::proto::proto_register_field_array(state.proto_id, rawptr, fields.len() as i32);
+    
+        //fn set_field_indices(self: &Self, hfindices: Vec<(PacketField, epan::proto::HFIndex)>);
+        let mut hfindices : Vec<(PacketField, epan::proto::HFIndex)> = Vec::new();
+        for i in 0..fields.len()
+        {
+            hfindices.push((fields[i], state.field_ids[i]));
+        }
+        state.ptr.set_field_indices(hfindices);
     }
 }
 

@@ -5,32 +5,31 @@
 use super::ftypes::ftenum;
 use super::tvbuff::tvbuff_t;
 
-
-use bitflags::bitflags;
-bitflags! {
-#[repr(C)]
-pub struct Encoding: u32 {
-    const BIG_ENDIAN = 0x00000000;
-    const LITTLE_ENDIAN = 0x80000000;
-    const STR_NUM = 0x01000000;
-    const STR_HEX = 0x02000000;
-    const STRING = 0x03000000;
-    const STR_MASK = 0x0000FFFE;
-}
+#[repr(u32)]
+#[derive(Clone, Copy, Debug)]
+pub enum Encoding
+{
+    BIG_ENDIAN = 0x00000000,
+    LITTLE_ENDIAN = 0x80000000,
+    STR_NUM = 0x01000000,
+    STR_HEX = 0x02000000,
+    STRING = 0x03000000,
+    STR_MASK = 0x0000FFFE,
 }
 
-bitflags! {
-#[repr(C)]
-pub struct FieldDisplay: i32 {
-    const BASE_NONE = 0;
-    const BASE_DEC = 1;
-    const BASE_HEX = 2;
-    const BASE_OCT = 3;
-}
+#[repr(u32)]
+#[derive(Clone, Copy, Debug)]
+pub enum FieldDisplay
+{
+    BASE_NONE = 0,
+    BASE_DEC = 1,
+    BASE_HEX = 2,
+    BASE_OCT = 3,
 }
 
 #[repr(C)]
 #[allow(dead_code)]
+#[derive(Debug)]
 pub enum hf_ref_type {
     NONE,
     INDIRECT,
@@ -55,6 +54,7 @@ pub struct proto_item {
     _private: [u8; 0],
 }
 
+#[derive(Debug)]
 #[repr(C)]
 pub struct header_field_info {
     pub name: *const libc::c_char,
@@ -95,6 +95,7 @@ impl Default for header_field_info {
 #[repr(transparent)]
 pub struct HFIndex(pub i32);
 
+#[derive(Debug)]
 #[repr(C)]
 pub struct hf_register_info {
     pub p_id: *mut HFIndex,            // written to by register() function
