@@ -9,8 +9,6 @@ Todo:
 // We can probably hook; https://github.com/wireshark/wireshark/blob/ebfbf958f6930b2dad486b33277470e8368dc111/epan/dissectors/packet-usb.c#L3516-L3518
 extern crate libc;
 
-#[macro_use]
-extern crate lazy_static;
 
 pub mod dissector;
 pub mod plugin;

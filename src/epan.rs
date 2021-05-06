@@ -217,7 +217,7 @@ impl TVB {
     /// (which can be negative, to indicate bytes from end of buffer). Function
     /// returns 0 if offset is either at the end of the buffer or out of bounds.
     /// No exception is thrown.
-    pub fn tvb_reported_length_remaining(self: &mut Self, offset: usize) -> i32 {
+    pub fn reported_length_remaining(self: &mut Self, offset: usize) -> i32 {
         unsafe {
             return tvbuff::tvb_reported_length_remaining(self.tvb, offset as i32);
         }
