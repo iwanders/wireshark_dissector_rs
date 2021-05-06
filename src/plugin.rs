@@ -107,6 +107,26 @@ extern "C" fn proto_register_protoinfo() {
 
         // Pass the now usable indices back to the dissector.
         dissector_tmp.set_field_indices(hfindices);
+
+        // And, then lastly, we create the tree indices.
+        let desired_count = dissector_tmp.get_tree_count();
+        if desired_count != 0
+        {
+            let mut ett_indices: Vec<epan::proto::ETTIndex> = Vec::new();
+            ett_indices.resize(desired_count, epan::proto::ETTIndex(-1));
+            let mut ett_index_vector: Vec<*mut epan::proto::ETTIndex> = Vec::new();
+            for i in 0..desired_count
+            {
+                ett_index_vector.push(&mut ett_indices[i] as *mut epan::proto::ETTIndex);
+            }
+            unsafe {
+                // now, we can pass this vector to register the ETTIndices we want.
+                epan::proto::proto_register_subtree_array(&mut ett_index_vector[0] as *mut *mut epan::proto::ETTIndex, desired_count as i32);
+            }
+            
+            dissector_tmp.set_tree_indices(ett_indices);
+        }
+        
     }
 
     // Store our pointer again.

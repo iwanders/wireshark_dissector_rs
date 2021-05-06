@@ -10,7 +10,7 @@ pub trait Dissector {
 
     /// After the fields are registered, this function is called to provide the new HFIndices that should be used
     /// to refer to the registered fields.
-    fn set_field_indices(self: &mut Self, hfindices: Vec<(PacketField, epan::proto::HFIndex)>);
+    fn set_field_indices(self: &mut Self, hf_indices: Vec<(PacketField, epan::proto::HFIndex)>);
 
     /// Called when there is something to dissect, so probably called for every packet. This function must return how
     /// many bytes it used from the tvb.
@@ -22,6 +22,18 @@ pub trait Dissector {
     /// This method should return a list that describes how this dissector's should be registered.
     fn get_registration(self: &Self) -> Vec<Registration> {
         return vec![Registration::Post];
+    }
+
+    /// This function should return the number of tree foldouts to register.
+    fn get_tree_count(self: &Self) -> usize
+    {
+        return 0;
+    }
+
+    /// This function is called after registering the tree foldouts, the provides ETTIndices can be used to add the
+    /// subtree elements to protocol items.
+    fn set_tree_indices(self: &mut Self, _ett_indices: Vec<epan::proto::ETTIndex>)
+    {
     }
 }
 

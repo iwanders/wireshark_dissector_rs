@@ -120,6 +120,14 @@ use std::ffi::CString;
 pub struct ProtoItem {
     item: *mut proto::proto_item,
 }
+impl From<&mut ProtoItem> for *mut proto::proto_item {
+    fn from(field: &mut ProtoItem) -> Self {
+        return field.item;
+    }
+}
+
+
+
 impl ProtoItem
 {
     /// Replace text of item after it already has been created.
@@ -156,17 +164,11 @@ impl ProtoItem
         }
     }
 
-    pub fn add_subtree(self: &mut Self, /* subtree id... */)
+    pub fn add_subtree(self: &mut Self, ett_id: proto::ETTIndex) -> ProtoTree
     {
-        //~ pub fn proto_item_add_subtree(ti: *mut proto_item, ett_id: i32) -> *mut proto_tree;
+        unsafe { ProtoTree::from_ptr( proto::proto_item_add_subtree(self.item.into(), ett_id)) }
     }
 }
-impl From<&mut ProtoItem> for *mut proto::proto_item {
-    fn from(field: &mut ProtoItem) -> Self {
-        return field.item;
-    }
-}
-
 /// Struct to represent a Testy Virtual Buffer, serves as a wrapper around the `tvb_*` C functions.
 pub struct TVB {
     tvb: *mut tvbuff::tvbuff_t,

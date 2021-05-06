@@ -119,6 +119,12 @@ impl Default for proto_plugin {
     }
 }
 
+
+#[derive(Clone, Copy, Debug)]
+#[repr(transparent)]
+pub struct ETTIndex(pub i32);
+
+
 #[link(name = "wireshark")]
 extern "C" {
 
@@ -131,7 +137,7 @@ extern "C" {
     pub fn proto_register_plugin(plugin: *const proto_plugin);
     pub fn proto_register_field_array(parent: i32, hf: *mut hf_register_info, num_records: i32);
 
-    //~ pub fn proto_register_subtree_array(); // signature looks wrong.
+    pub fn proto_register_subtree_array(indices: *mut *mut ETTIndex, num_indices: i32);
 
     // Proto tree
     pub fn proto_tree_add_protocol_format(
@@ -189,6 +195,6 @@ extern "C" {
     pub fn proto_item_set_text(ti: *mut proto_item, text: *const libc::c_char);
     pub fn proto_item_append_text(ti: *mut proto_item, text: *const libc::c_char);
     pub fn proto_item_prepend_text(ti: *mut proto_item, text: *const libc::c_char);
-    pub fn proto_item_add_subtree(ti: *mut proto_item, ett_id: i32) -> *mut proto_tree;
+    pub fn proto_item_add_subtree(ti: *mut proto_item, ett_id: ETTIndex) -> *mut proto_tree;
 
 }

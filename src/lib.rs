@@ -23,8 +23,18 @@ pub mod epan;
 type FieldType = dissector::FieldType;
 type FieldDisplay = dissector::FieldDisplay;
 
+
+#[repr(usize)]
+enum TreeIdentifier
+{
+    Main,
+    FirstElements,
+    Last
+}
 struct MyDissector {
     field_mapping: Vec<(dissector::PacketField, epan::proto::HFIndex)>,
+    tree_indices: Vec<epan::proto::ETTIndex>,
+
 }
 impl MyDissector {
     const FIELD1: dissector::PacketField = dissector::PacketField {
@@ -67,6 +77,24 @@ impl MyDissector {
         }
         panic!("Couldn't find field id for {:?}", desired_field);
     }
+
+    fn get_tree_id(self: &Self, identifier: TreeIdentifier) -> epan::proto::ETTIndex
+    {
+        match identifier
+        {
+            TreeIdentifier::Main => return self.tree_indices[0],
+            TreeIdentifier::FirstElements => return self.tree_indices[1],
+            TreeIdentifier::Last => {panic!("Nope");}
+        };
+    }
+
+    
+    fn new() -> MyDissector {
+        MyDissector { 
+        field_mapping: Vec::new(),
+        tree_indices: Vec::new(),
+        }
+    }
 }
 
 impl dissector::Dissector for MyDissector {
@@ -86,17 +114,20 @@ impl dissector::Dissector for MyDissector {
     }
 
     fn dissect(self: &mut Self, proto: &mut epan::ProtoTree, tvb: &mut epan::TVB) -> usize {
+
         //~ return self.dissect_displaylight(dissection);
         //~ println!("bytes: {:?}", tvb.bytes(0));
-        proto.add_item(
+        let mut item_entry = proto.add_item(
             self.get_id(&MyDissector::FIELD2),
             tvb,
             0,
             1,
             epan::proto::Encoding::BIG_ENDIAN,
         );
-        proto.add_item(self.get_id(&MyDissector::FIELD3),tvb,1,2,epan::proto::Encoding::BIG_ENDIAN);
-        let (mut item, retval) = proto.add_item_ret_int(self.get_id(&MyDissector::FIELD32),tvb,1,4,epan::proto::Encoding::BIG_ENDIAN);
+        let mut fold_thing = item_entry.add_subtree(self.get_tree_id(TreeIdentifier::Main));
+        //~ let fold_thing = &mut proto;
+        fold_thing.add_item(self.get_id(&MyDissector::FIELD3),tvb,1,2,epan::proto::Encoding::BIG_ENDIAN);
+        let (mut item, retval) = fold_thing.add_item_ret_int(self.get_id(&MyDissector::FIELD32),tvb,1,4,epan::proto::Encoding::BIG_ENDIAN);
         if retval % 2 == 0
         {
             item.prepend_text("foo");
@@ -127,13 +158,21 @@ impl dissector::Dissector for MyDissector {
             //~ },
         ];
     }
+
+    fn get_tree_count(self: &Self) -> usize
+    {
+        return TreeIdentifier::Last as usize;
+    }
+
+    fn set_tree_indices(self: &mut Self, ett_indices: Vec<epan::proto::ETTIndex>)
+    {
+        self.tree_indices = ett_indices;
+    }
 }
 
 // This function is the main entry point where we can do our setup.
 #[no_mangle]
 pub fn plugin_register() {
-    let z = Box::new(MyDissector {
-        field_mapping: Vec::new(),
-    });
+    let z = Box::new(MyDissector::new());
     plugin::setup(z);
 }
