@@ -2,6 +2,13 @@ use crate::dissector;
 use crate::epan;
 use crate::util;
 
+/*
+    After placing an item, dissect_protocol_function for registered protocols (including our own protocol) may be called
+    but we have already taken the dissector out of the DISSECTOR_PTR global, so we don't have a dissector to work with
+    and we can't do anything. Popping all bytes from the tvb, or none doesn't help.
+*/
+
+
 use crate::dissector::Dissector;
 use crate::dissector::PacketField;
 
@@ -31,16 +38,22 @@ extern "C" fn dissect_protocol_function(
     tree: *mut epan::proto::proto_tree,
     _data: *mut libc::c_void,
 ) -> u32 {
+
+    // Create our nice safe wrappers
+    let mut proto: epan::ProtoTree = unsafe { epan::ProtoTree::from_ptr(tree) };
+    let mut tvb: epan::TVB = unsafe { epan::TVB::from_ptr(tvb) };
+
+    // A temporary to hold the dissector.
     let mut dissector_tmp: Option<Box<dyn Dissector>>;
 
     // Move our dissector pointer, from a mutable static, so this is unsafe.
     unsafe {
+        if !DISSECTOR_PTR.is_some() {
+            panic!("Trying to obtain the dissector while it's in use.");
+        }
         dissector_tmp = Some(DISSECTOR_PTR.take().unwrap());
     }
 
-    // Create our nice safe wrappers
-    let mut proto: epan::ProtoTree = unsafe{ epan::ProtoTree::from_ptr(tree)};
-    let mut tvb: epan::TVB = unsafe{  epan::TVB::from_ptr(tvb) };
 
     // Call the dissector.
     let used_bytes = dissector_tmp.as_mut().unwrap().dissect(&mut proto, &mut tvb);
@@ -110,23 +123,23 @@ extern "C" fn proto_register_protoinfo() {
 
         // And, then lastly, we create the tree indices.
         let desired_count = dissector_tmp.get_tree_count();
-        if desired_count != 0
-        {
+        if desired_count != 0 {
             let mut ett_indices: Vec<epan::proto::ETTIndex> = Vec::new();
             ett_indices.resize(desired_count, epan::proto::ETTIndex(-1));
             let mut ett_index_vector: Vec<*mut epan::proto::ETTIndex> = Vec::new();
-            for i in 0..desired_count
-            {
+            for i in 0..desired_count {
                 ett_index_vector.push(&mut ett_indices[i] as *mut epan::proto::ETTIndex);
             }
             unsafe {
                 // now, we can pass this vector to register the ETTIndices we want.
-                epan::proto::proto_register_subtree_array(&mut ett_index_vector[0] as *mut *mut epan::proto::ETTIndex, desired_count as i32);
+                epan::proto::proto_register_subtree_array(
+                    &mut ett_index_vector[0] as *mut *mut epan::proto::ETTIndex,
+                    desired_count as i32,
+                );
             }
-            
+
             dissector_tmp.set_tree_indices(ett_indices);
         }
-        
     }
 
     // Store our pointer again.
@@ -139,7 +152,6 @@ extern "C" fn proto_register_handoff() {
     // A handoff routine associates a protocol handler with the protocol’s traffic. It consists of two major steps:
     // The first step is to create a dissector handle, which is a handle associated with the protocol and the function called to do the actual dissecting.
     // The second step is to register the dissector handle so that traffic associated with the protocol calls the dissector.
-    println!("proto_reg_handoff_hello");
 
     let mut dissector_tmp_option: Option<Box<dyn Dissector>>;
     unsafe {
@@ -186,8 +198,3 @@ extern "C" fn proto_register_handoff() {
         DISSECTOR_PTR = Some(dissector_tmp_option.unwrap());
     }
 }
-
-#[no_mangle]
-static plugin_version: [libc::c_char; 4] = [50, 46, 54, 0]; // "2.6"
-#[no_mangle]
-static plugin_release: [libc::c_char; 4] = [50, 46, 54, 0]; // "2.6"

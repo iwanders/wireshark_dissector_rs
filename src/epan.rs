@@ -13,6 +13,9 @@
 
 // Reassembly 2.7.2 Modifying the pinfo struct; https://github.com/wireshark/wireshark/blob/ebfbf958f6930b2dad486b33277470e8368dc111/doc/README.dissector#L3472
 // Yeah, that doesn't work for USB packets... gg.
+// https://doc.rust-lang.org/nomicon/ffi.html
+
+// We can probably hook; https://github.com/wireshark/wireshark/blob/ebfbf958f6930b2dad486b33277470e8368dc111/epan/dissectors/packet-usb.c#L3516-L3518
 
 // This seems useful?
 // https://stackoverflow.com/a/55323693
@@ -59,7 +62,6 @@ pub struct ProtoTree {
 }
 
 impl ProtoTree {
-
     /// Function to make this structure from a raw pointer.
     pub unsafe fn from_ptr(tree: *mut proto::proto_tree) -> ProtoTree {
         return ProtoTree { tree: tree };
@@ -113,7 +115,6 @@ impl ProtoTree {
     }
 }
 
-
 use std::ffi::CString;
 
 /// Struct to represent a protocol item, serves as a wrapper around the `proto_item_*` C functions.
@@ -126,16 +127,11 @@ impl From<&mut ProtoItem> for *mut proto::proto_item {
     }
 }
 
-
-
-impl ProtoItem
-{
+impl ProtoItem {
     /// Replace text of item after it already has been created.
-    pub fn set_text(self: &mut Self, text: &str)
-    {
+    pub fn set_text(self: &mut Self, text: &str) {
         let to_add = CString::new(text).unwrap().into_raw();
-        unsafe
-        {
+        unsafe {
             proto::proto_item_set_text(self.item.into(), to_add);
             // and clean up the string again.
             let _ = CString::from_raw(to_add);
@@ -143,30 +139,25 @@ impl ProtoItem
     }
 
     /// Append to text of item after it has already been created.
-    pub fn append_text(self: &mut Self, text: &str)
-    {
+    pub fn append_text(self: &mut Self, text: &str) {
         let to_add = CString::new(text).unwrap().into_raw();
-        unsafe
-        {
+        unsafe {
             proto::proto_item_append_text(self.item.into(), to_add);
             let _ = CString::from_raw(to_add);
         }
     }
 
     /// Prepend to text of item after it has already been created.
-    pub fn prepend_text(self: &mut Self, text: &str)
-    {
+    pub fn prepend_text(self: &mut Self, text: &str) {
         let to_add = CString::new(text).unwrap().into_raw();
-        unsafe
-        {
+        unsafe {
             proto::proto_item_prepend_text(self.item.into(), to_add);
             let _ = CString::from_raw(to_add);
         }
     }
 
-    pub fn add_subtree(self: &mut Self, ett_id: proto::ETTIndex) -> ProtoTree
-    {
-        unsafe { ProtoTree::from_ptr( proto::proto_item_add_subtree(self.item.into(), ett_id)) }
+    pub fn add_subtree(self: &mut Self, ett_id: proto::ETTIndex) -> ProtoTree {
+        unsafe { ProtoTree::from_ptr(proto::proto_item_add_subtree(self.item.into(), ett_id)) }
     }
 }
 /// Struct to represent a Testy Virtual Buffer, serves as a wrapper around the `tvb_*` C functions.
@@ -174,7 +165,6 @@ pub struct TVB {
     tvb: *mut tvbuff::tvbuff_t,
 }
 impl TVB {
-
     /// Create this structure from a raw pointer.
     pub unsafe fn from_ptr(tvb: *mut tvbuff::tvbuff_t) -> TVB {
         return TVB { tvb: tvb };
@@ -194,11 +184,10 @@ impl TVB {
     /// security vulnerability or otherwise crash Wireshark. Then consider
     /// that you can probably find a function elsewhere in this file that
     /// does exactly what you want in a much more safe and robust manner.
-    pub fn bytes(self: &mut Self, offset: usize) -> &[u8] {
+    pub fn remaining_bytes(self: &mut Self, offset: usize) -> &[u8] {
         unsafe {
             let mut available_length = tvbuff::tvb_reported_length_remaining(self.tvb, offset as i32);
-            if available_length < 0
-            {
+            if available_length < 0 {
                 available_length = 0;
             }
             let data_ptr = tvbuff::tvb_get_ptr(self.tvb, offset as i32, available_length as i32);

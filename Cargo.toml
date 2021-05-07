@@ -13,5 +13,10 @@ libc = "0.2.93"
 [lib]
 name = "wireshark_dissector_rs"
 path = "src/lib.rs"
-crate-type = ["cdylib"]      # Creates dynamic lib
+crate-type = ["lib"]
 
+# if something is a cdylib, you can't link it as a rust crate.
+
+[[example]]
+name = "dummy"
+crate-type = ["cdylib"]

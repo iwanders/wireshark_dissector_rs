@@ -18,7 +18,7 @@ pub fn perm_string(input: &str) -> &CStr {
         container_tmp = Some(STRING_STORAGE.take().unwrap());
     }
 
-    let mut result : Option<*const i8> = None;
+    let mut result: Option<*const i8> = None;
 
     for stored_string in container_tmp.as_mut().unwrap().iter() {
         unsafe {
@@ -28,16 +28,18 @@ pub fn perm_string(input: &str) -> &CStr {
             }
         }
     }
-    if result.is_some()
-    {
-        unsafe { STRING_STORAGE = Some(container_tmp.unwrap());
-        return CStr::from_ptr(result.unwrap());
+    if result.is_some() {
+        unsafe {
+            STRING_STORAGE = Some(container_tmp.unwrap());
+            return CStr::from_ptr(result.unwrap());
         }
     }
-    
+
     let to_add = CString::new(input).unwrap().into_raw();
     container_tmp.as_mut().unwrap().push(to_add);
-    unsafe { STRING_STORAGE = Some(container_tmp.unwrap());}
+    unsafe {
+        STRING_STORAGE = Some(container_tmp.unwrap());
+    }
     return perm_string(input);
 }
 

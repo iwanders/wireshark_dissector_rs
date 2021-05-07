@@ -1,8 +1,6 @@
 use crate::epan;
 use crate::util;
 
-//-------------------------------------------------
-
 /// The trait the dissector must adhere to.
 pub trait Dissector {
     /// This function must return a vector of all the possible fields the dissector will end up using.
@@ -25,16 +23,13 @@ pub trait Dissector {
     }
 
     /// This function should return the number of tree foldouts to register.
-    fn get_tree_count(self: &Self) -> usize
-    {
+    fn get_tree_count(self: &Self) -> usize {
         return 0;
     }
 
     /// This function is called after registering the tree foldouts, the provides ETTIndices can be used to add the
     /// subtree elements to protocol items.
-    fn set_tree_indices(self: &mut Self, _ett_indices: Vec<epan::proto::ETTIndex>)
-    {
-    }
+    fn set_tree_indices(self: &mut Self, _ett_indices: Vec<epan::proto::ETTIndex>) {}
 }
 
 //-------------------------------------------------
@@ -64,17 +59,18 @@ impl From<PacketField> for epan::proto::header_field_info {
 
 // https://rust-lang.github.io/rfcs/0418-struct-variants.html
 // This is so fancy
+/// Enum to specify when to invoke this dissector.
 pub enum Registration {
-    Post, // called after every frame's dissection.
-    UInt {
-        abbrev: &'static str,
-        pattern: u32,
-    },
+    /// Register as a postdissector, this calls `register_postdissector`.
+    Post,
+    /// Register an field abbreviation and a integer value, this calls `dissector_add_uint`, this for example allows
+    /// registering based on a port, or based on an USB device id.
+    UInt { abbrev: &'static str, pattern: u32 },
+    /// Register based on a field abbreviation and a range of integers. (At the moment hardcoded limit to 100 ranges).
     UIntRange {
         abbrev: &'static str,
         ranges: Vec<(u32, u32)>,
     },
-    DecodeAs {
-        abbrev: &'static str,
-    },
+    /// Register this dissector for manual 'decode as' functionality.
+    DecodeAs { abbrev: &'static str },
 }

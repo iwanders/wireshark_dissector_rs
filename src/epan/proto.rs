@@ -119,11 +119,9 @@ impl Default for proto_plugin {
     }
 }
 
-
 #[derive(Clone, Copy, Debug)]
 #[repr(transparent)]
 pub struct ETTIndex(pub i32);
-
 
 #[link(name = "wireshark")]
 extern "C" {
@@ -188,8 +186,6 @@ extern "C" {
         encoding: Encoding,
         retval: *mut u32,
     ) -> *mut proto_item;
-
-
 
     // Proto item functions below
     pub fn proto_item_set_text(ti: *mut proto_item, text: *const libc::c_char);
