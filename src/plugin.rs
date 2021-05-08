@@ -6,6 +6,48 @@ use crate::util;
     After placing an item, dissect_protocol_function for registered protocols (including our own protocol) may be called
     but we have already taken the dissector out of the DISSECTOR_PTR global, so we don't have a dissector to work with
     and we can't do anything. Popping all bytes from the tvb, or none doesn't help.
+
+    This ONLY happens because the usb dissector is bad and forces us to be re-entrant. TCP works fine, stacktrace from
+    the usb crash we get:
+
+   1: wireshark_dissector_rs::plugin::dissect_protocol_function
+             at <snip>/plugin.rs:53:13
+   2: call_dissector_through_handle
+             at /tmp/wireshark-master/epan/packet.c:720
+   3: call_dissector_work
+             at /tmp/wireshark-master/epan/packet.c:813
+   4: dissector_try_uint_new
+             at /tmp/wireshark-master/epan/packet.c:1413
+   5: try_dissect_next_protocol
+             at /tmp/wireshark-master/epan/dissectors/packet-usb.c:3552
+   6: dissect_usb_setup_request
+             at /tmp/wireshark-master/epan/dissectors/packet-usb.c:3871
+   7: dissect_usb_common
+             at /tmp/wireshark-master/epan/dissectors/packet-usb.c:5175
+   8: dissect_win32_usb
+             at /tmp/wireshark-master/epan/dissectors/packet-usb.c:5327
+   9: call_dissector_through_handle
+             at /tmp/wireshark-master/epan/packet.c:720
+  10: call_dissector_work
+             at /tmp/wireshark-master/epan/packet.c:813
+  11: dissect_frame
+             at /tmp/wireshark-master/epan/dissectors/packet-frame.c:788
+  12: call_dissector_through_handle
+             at /tmp/wireshark-master/epan/packet.c:720
+  13: call_dissector_work
+             at /tmp/wireshark-master/epan/packet.c:813
+  14: call_dissector_with_data
+             at /tmp/wireshark-master/epan/packet.c:3246
+  15: dissect_record
+             at /tmp/wireshark-master/epan/packet.c:594
+  16: epan_dissect_run_with_taps
+             at /tmp/wireshark-master/epan/epan.c:607
+  17: add_packet_to_packet_list
+             at /tmp/wireshark-master/file.c:1201
+  18: read_record
+             at /tmp/wireshark-master/file.c:1297
+  19: cf_read
+
 */
 
 
@@ -49,6 +91,7 @@ extern "C" fn dissect_protocol_function(
     // Move our dissector pointer, from a mutable static, so this is unsafe.
     unsafe {
         if !DISSECTOR_PTR.is_some() {
+            //~ return 0;
             panic!("Trying to obtain the dissector while it's in use.");
         }
         dissector_tmp = Some(DISSECTOR_PTR.take().unwrap());

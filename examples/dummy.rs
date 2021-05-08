@@ -97,7 +97,7 @@ impl dissector::Dissector for MyDissector {
         //~ return self.dissect_displaylight(dissection);
         //~ println!("remaining_bytes: {:?}", tvb.remaining_bytes(0));
         let mut item_entry = proto.add_item(
-            self.get_id(&MyDissector::FIELD2),
+            self.get_id(&MyDissector::FIELD64),
             tvb,
             0,
             1,
@@ -132,11 +132,19 @@ impl dissector::Dissector for MyDissector {
     fn get_registration(self: &Self) -> Vec<dissector::Registration> {
         // usb makes a table;     product_to_dissector = register_dissector_table("usb.product",   "USB product",  proto_usb, FT_UINT32, BASE_HEX);
         return vec![
-            //~ dissector::Registration::Post,
-            //~ dissector::Registration::DecodeAs { abbrev: "usb.product" },
+            dissector::Registration::Post,
+            dissector::Registration::DecodeAs { abbrev: "tcp.port" },
+            //~ dissector::Registration::UInt {
+                //~ abbrev: "usb.product",
+                //~ pattern: 0x15320226,
+            //~ },
+            //~ dissector::Registration::UInt {
+                //~ abbrev: "udp.dstport",
+                //~ pattern: 8995,
+            //~ },
             dissector::Registration::UInt {
-                abbrev: "usb.product",
-                pattern: 0x15320226,
+                abbrev: "tcp.port",
+                pattern: 443,
             },
             //~ dissector::Registration::UInt {
             //~ abbrev: "usb.device",
@@ -171,3 +179,9 @@ pub fn plugin_register() {
 static plugin_version: [libc::c_char; 4] = [50, 46, 54, 0]; // "2.6"
 #[no_mangle]
 static plugin_release: [libc::c_char; 4] = [50, 46, 54, 0]; // "2.6"
+
+// New stuff wants this.
+#[no_mangle]
+static plugin_want_major: u32 = 3;
+#[no_mangle]
+static plugin_want_minor: u32 = 5;
