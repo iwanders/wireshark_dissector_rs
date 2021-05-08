@@ -7,49 +7,12 @@ use crate::util;
     but we have already taken the dissector out of the DISSECTOR_PTR global, so we don't have a dissector to work with
     and we can't do anything. Popping all bytes from the tvb, or none doesn't help.
 
-    This ONLY happens because the usb dissector is bad and forces us to be re-entrant. TCP works fine, stacktrace from
-    the usb crash we get:
-
-   1: wireshark_dissector_rs::plugin::dissect_protocol_function
-             at <snip>/plugin.rs:53:13
-   2: call_dissector_through_handle
-             at /tmp/wireshark-master/epan/packet.c:720
-   3: call_dissector_work
-             at /tmp/wireshark-master/epan/packet.c:813
-   4: dissector_try_uint_new
-             at /tmp/wireshark-master/epan/packet.c:1413
-   5: try_dissect_next_protocol
-             at /tmp/wireshark-master/epan/dissectors/packet-usb.c:3552
-   6: dissect_usb_setup_request
-             at /tmp/wireshark-master/epan/dissectors/packet-usb.c:3871
-   7: dissect_usb_common
-             at /tmp/wireshark-master/epan/dissectors/packet-usb.c:5175
-   8: dissect_win32_usb
-             at /tmp/wireshark-master/epan/dissectors/packet-usb.c:5327
-   9: call_dissector_through_handle
-             at /tmp/wireshark-master/epan/packet.c:720
-  10: call_dissector_work
-             at /tmp/wireshark-master/epan/packet.c:813
-  11: dissect_frame
-             at /tmp/wireshark-master/epan/dissectors/packet-frame.c:788
-  12: call_dissector_through_handle
-             at /tmp/wireshark-master/epan/packet.c:720
-  13: call_dissector_work
-             at /tmp/wireshark-master/epan/packet.c:813
-  14: call_dissector_with_data
-             at /tmp/wireshark-master/epan/packet.c:3246
-  15: dissect_record
-             at /tmp/wireshark-master/epan/packet.c:594
-  16: epan_dissect_run_with_taps
-             at /tmp/wireshark-master/epan/epan.c:607
-  17: add_packet_to_packet_list
-             at /tmp/wireshark-master/file.c:1201
-  18: read_record
-             at /tmp/wireshark-master/file.c:1297
-  19: cf_read
+    This ONLY happens because the usb dissector is bad and forces us to be re-entrant. TCP works fine.
+    The issue seems to be that usb dissector does `usb_tap = register_tap("usb");` and because of that it seems to call
+    our dissector again when we add a field, seems to happen from the tap itself?
+    Or even only seems to happen if we register as something behind usb hid...?
 
 */
-
 
 use crate::dissector::Dissector;
 use crate::dissector::PacketField;
@@ -79,8 +42,7 @@ extern "C" fn dissect_protocol_function(
     _packet_info: *mut epan::packet_info::packet_info,
     tree: *mut epan::proto::proto_tree,
     _data: *mut libc::c_void,
-) -> u32 {
-
+) -> i32 {
     // Create our nice safe wrappers
     let mut proto: epan::ProtoTree = unsafe { epan::ProtoTree::from_ptr(tree) };
     let mut tvb: epan::TVB = unsafe { epan::TVB::from_ptr(tvb) };
@@ -90,24 +52,58 @@ extern "C" fn dissect_protocol_function(
 
     // Move our dissector pointer, from a mutable static, so this is unsafe.
     unsafe {
+        //~ println!("thread Claiming the dissector: {:?}", thread::current().id());
+        //~ let bt = Backtrace::new();
+        //~ println!("{:?}", bt);
         if !DISSECTOR_PTR.is_some() {
-            //~ return 0;
+            //~ return tvb.reported_length() as u32;
+            //~ return -1 as i32;
             panic!("Trying to obtain the dissector while it's in use.");
         }
+
         dissector_tmp = Some(DISSECTOR_PTR.take().unwrap());
     }
-
 
     // Call the dissector.
     let used_bytes = dissector_tmp.as_mut().unwrap().dissect(&mut proto, &mut tvb);
 
     // Move the pointer back.
     unsafe {
+        //~ println!("thread returning the dissector: {:?}", thread::current().id());
+        //~ let bt = Backtrace::new();
+        //~ println!("{:?}", bt);
+
         DISSECTOR_PTR = Some(dissector_tmp.unwrap());
     }
 
     // Return how much bytes we consumed.
-    return used_bytes as u32;
+    return used_bytes as i32;
+}
+
+extern "C" fn heuristic_dissector_function(
+    tvb: *mut epan::tvbuff::tvbuff_t,
+    _packet_info: *mut epan::packet_info::packet_info,
+    tree: *mut epan::proto::proto_tree,
+    _data: *mut libc::c_void,
+) -> bool {
+    let mut dissector_tmp_option: Option<Box<dyn Dissector>>;
+    unsafe {
+        dissector_tmp_option = Some(DISSECTOR_PTR.take().unwrap());
+    }
+
+    let mut proto: epan::ProtoTree = unsafe { epan::ProtoTree::from_ptr(tree) };
+    let mut tvb: epan::TVB = unsafe { epan::TVB::from_ptr(tvb) };
+
+    let applies = dissector_tmp_option
+        .as_mut()
+        .unwrap()
+        .heuristic_applies(&mut proto, &mut tvb);
+
+    // Store our pointer again.
+    unsafe {
+        DISSECTOR_PTR = Some(dissector_tmp_option.unwrap());
+    }
+    return applies;
 }
 
 extern "C" fn proto_register_protoinfo() {
@@ -232,6 +228,26 @@ extern "C" fn proto_register_handoff() {
 
                 dissector::Registration::DecodeAs { abbrev } => {
                     epan::packet::dissector_add_for_decode_as(util::perm_string_ptr(abbrev), dissector_handle);
+                }
+
+                dissector::Registration::Heuristic {
+                    table,
+                    display_name,
+                    internal_name,
+                    enabled,
+                } => {
+                    epan::packet::heur_dissector_add(
+                        util::perm_string_ptr(table),
+                        Some(heuristic_dissector_function),
+                        util::perm_string_ptr(display_name),
+                        util::perm_string_ptr(internal_name),
+                        PROTO_ID,
+                        if enabled {
+                            epan::packet::heuristic_enable_e::HEURISTIC_ENABLE
+                        } else {
+                            epan::packet::heuristic_enable_e::HEURISTIC_DISABLE
+                        },
+                    );
                 }
             }
         }

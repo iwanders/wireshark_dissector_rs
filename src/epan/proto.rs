@@ -48,6 +48,11 @@ pub struct proto_item {
     _private: [u8; 0],
 }
 
+#[repr(C)]
+pub struct protocol_t {
+    _private: [u8; 0],
+}
+
 #[derive(Debug)]
 #[repr(C)]
 pub struct header_field_info {

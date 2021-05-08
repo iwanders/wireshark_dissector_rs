@@ -96,6 +96,7 @@ impl dissector::Dissector for MyDissector {
     fn dissect(self: &mut Self, proto: &mut epan::ProtoTree, tvb: &mut epan::TVB) -> usize {
         //~ return self.dissect_displaylight(dissection);
         //~ println!("remaining_bytes: {:?}", tvb.remaining_bytes(0));
+        println!("In dissect, going into proto add_item.");
         let mut item_entry = proto.add_item(
             self.get_id(&MyDissector::FIELD64),
             tvb,
@@ -125,6 +126,27 @@ impl dissector::Dissector for MyDissector {
         tvb.reported_length()
     }
 
+    fn heuristic_applies(self: &mut Self, proto: &mut epan::ProtoTree, tvb: &mut epan::TVB) -> bool {
+        println!("Saying we apply!");
+        let mut item_entry = proto.add_item(
+            self.get_id(&MyDissector::FIELD64),
+            tvb,
+            0,
+            1,
+            epan::proto::Encoding::BIG_ENDIAN,
+        );
+        let mut fold_thing = item_entry.add_subtree(self.get_tree_id(TreeIdentifier::Main));
+        //~ let fold_thing = &mut proto;
+        fold_thing.add_item(
+            self.get_id(&MyDissector::FIELD3),
+            tvb,
+            1,
+            2,
+            epan::proto::Encoding::BIG_ENDIAN,
+        );
+        return true;
+    }
+
     fn get_protocol_name(self: &Self) -> (&'static str, &'static str, &'static str) {
         return ("This is a test protocol", "testproto", "testproto");
     }
@@ -132,8 +154,9 @@ impl dissector::Dissector for MyDissector {
     fn get_registration(self: &Self) -> Vec<dissector::Registration> {
         // usb makes a table;     product_to_dissector = register_dissector_table("usb.product",   "USB product",  proto_usb, FT_UINT32, BASE_HEX);
         return vec![
-            dissector::Registration::Post,
-            dissector::Registration::DecodeAs { abbrev: "tcp.port" },
+            //~ dissector::Registration::Post,
+            //~ dissector::Registration::DecodeAs { abbrev: "tcp.port" },
+            //~ dissector::Registration::DecodeAs { abbrev: "usb.product" },
             //~ dissector::Registration::UInt {
                 //~ abbrev: "usb.product",
                 //~ pattern: 0x15320226,
@@ -142,17 +165,23 @@ impl dissector::Dissector for MyDissector {
                 //~ abbrev: "udp.dstport",
                 //~ pattern: 8995,
             //~ },
-            dissector::Registration::UInt {
-                abbrev: "tcp.port",
-                pattern: 443,
-            },
             //~ dissector::Registration::UInt {
-            //~ abbrev: "usb.device",
-            //~ pattern: 0x00030003,
+                //~ abbrev: "tcp.port",
+                //~ pattern: 443,
             //~ },
-            //~ dissector::Registration::UIntRange {
-            //~ abbrev: "usb.product",
-            //~ ranges: vec![(0x15320000, 0x1532FFFF)]
+            //~ dissector::Registration::UInt {
+                //~ abbrev: "usb.device",
+                //~ pattern: 0x00030003,
+            //~ },
+            //~ dissector::Registration::UInt {
+                //~ abbrev: "usb.device",
+                //~ pattern: 0x00030007,
+            //~ },
+            //~ dissector::Registration::Heuristic {
+                //~ table: "usb.control",
+                //~ internal_name: "dummy_heuristic",
+                //~ display_name: "Dummy Heuristic",
+                //~ enabled: true,
             //~ },
         ];
     }

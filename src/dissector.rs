@@ -30,6 +30,10 @@ pub trait Dissector {
     /// This function is called after registering the tree foldouts, the provides ETTIndices can be used to add the
     /// subtree elements to protocol items.
     fn set_tree_indices(self: &mut Self, _ett_indices: Vec<epan::proto::ETTIndex>) {}
+
+    fn heuristic_applies(self: &mut Self, _proto: &mut epan::ProtoTree, _tvb: &mut epan::TVB) -> bool {
+        false
+    }
 }
 
 //-------------------------------------------------
@@ -73,4 +77,11 @@ pub enum Registration {
     },
     /// Register this dissector for manual 'decode as' functionality.
     DecodeAs { abbrev: &'static str },
+    /// As a heuristic dissector, uses the names from get_protocol_name() for registration.
+    Heuristic {
+        table: &'static str,
+        display_name: &'static str,
+        internal_name: &'static str,
+        enabled: bool,
+    },
 }
