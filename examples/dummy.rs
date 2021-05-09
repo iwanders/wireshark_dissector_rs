@@ -96,11 +96,29 @@ impl dissector::Dissector for MyDissector {
     fn dissect(self: &mut Self, proto: &mut epan::ProtoTree, tvb: &mut epan::TVB) -> usize {
         //~ return self.dissect_displaylight(dissection);
         //~ println!("remaining_bytes: {:?}", tvb.remaining_bytes(0));
-        println!("In dissect, going into proto add_item.");
+        let mut offset : usize = 0;
+        for field in proto.all_finfos()
+        {
+            match field.hfinfo() {
+                Ok(v) => {
+                    if (v.abbrev() == "usb.data_fragment")
+                    {
+                        offset = field.start() as usize;
+                    }
+                }
+                Err(e) => println!("{}", e)
+            };
+        }
+
+        if (offset == 0)
+        {
+            return tvb.reported_length();
+        }
+
         let mut item_entry = proto.add_item(
             self.get_id(&MyDissector::FIELD64),
             tvb,
-            0,
+            offset,
             1,
             epan::proto::Encoding::BIG_ENDIAN,
         );
@@ -109,14 +127,14 @@ impl dissector::Dissector for MyDissector {
         fold_thing.add_item(
             self.get_id(&MyDissector::FIELD3),
             tvb,
-            1,
+            offset+1,
             2,
             epan::proto::Encoding::BIG_ENDIAN,
         );
         let (mut item, retval) = fold_thing.add_item_ret_int(
             self.get_id(&MyDissector::FIELD32),
             tvb,
-            1,
+            offset+1,
             4,
             epan::proto::Encoding::BIG_ENDIAN,
         );
@@ -126,27 +144,6 @@ impl dissector::Dissector for MyDissector {
         tvb.reported_length()
     }
 
-    fn heuristic_applies(self: &mut Self, proto: &mut epan::ProtoTree, tvb: &mut epan::TVB) -> bool {
-        println!("Saying we apply!");
-        let mut item_entry = proto.add_item(
-            self.get_id(&MyDissector::FIELD64),
-            tvb,
-            0,
-            1,
-            epan::proto::Encoding::BIG_ENDIAN,
-        );
-        let mut fold_thing = item_entry.add_subtree(self.get_tree_id(TreeIdentifier::Main));
-        //~ let fold_thing = &mut proto;
-        fold_thing.add_item(
-            self.get_id(&MyDissector::FIELD3),
-            tvb,
-            1,
-            2,
-            epan::proto::Encoding::BIG_ENDIAN,
-        );
-        return true;
-    }
-
     fn get_protocol_name(self: &Self) -> (&'static str, &'static str, &'static str) {
         return ("This is a test protocol", "testproto", "testproto");
     }
@@ -154,7 +151,7 @@ impl dissector::Dissector for MyDissector {
     fn get_registration(self: &Self) -> Vec<dissector::Registration> {
         // usb makes a table;     product_to_dissector = register_dissector_table("usb.product",   "USB product",  proto_usb, FT_UINT32, BASE_HEX);
         return vec![
-            //~ dissector::Registration::Post,
+            dissector::Registration::Post,
             //~ dissector::Registration::DecodeAs { abbrev: "tcp.port" },
             //~ dissector::Registration::DecodeAs { abbrev: "usb.product" },
             //~ dissector::Registration::UInt {

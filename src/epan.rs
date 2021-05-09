@@ -30,6 +30,7 @@ pub mod packet_info;
 pub mod proto;
 pub mod range;
 pub mod tvbuff;
+pub mod glib;
 
 /*
    Dissector
@@ -55,7 +56,139 @@ pub mod tvbuff;
        proto_item_add_subtree(tree_index) -> ProtoTree
 
 
+
+    Todo: switch from pointers to references with proper lifetime if that's possible?
 */
+
+/// Struct to represent header field information, serves as a read only wrapper around the `header_field_info` C struct.
+pub struct HeaderFieldInfo
+{
+    hfi: *const proto::header_field_info
+}
+impl HeaderFieldInfo
+{
+    /// Function to make this structure from a raw pointer.
+    pub unsafe fn from_ptr(header_field_info: *const proto::header_field_info) -> HeaderFieldInfo {
+        if (header_field_info.is_null())
+        {
+            panic!("HeaderFieldInfo from nullptr.");
+        }
+        return HeaderFieldInfo { hfi: header_field_info };
+    }
+
+    /// Retrieve the pretty field name
+    pub fn name(self: &Self) -> &str
+    {
+        use std::ffi::CStr;
+        unsafe{
+            match CStr::from_ptr((*self.hfi).name).to_str() {
+                Ok (t) => t,
+                Err(_) => "",
+            }
+        }
+    }
+
+    /// Retrieve the field abbreviation.
+    pub fn abbrev(self: &Self) -> &str
+    {
+        use std::ffi::CStr;
+        unsafe{
+            match CStr::from_ptr((*self.hfi).abbrev).to_str() {
+                Ok (t) => t,
+                Err(_) => "",
+            }
+        }
+    }
+
+    /// Obtain the field type enum.
+    pub fn type_(self: &Self) -> ftypes::ftenum
+    {
+        unsafe{
+            return (*self.hfi).type_;
+        }
+    }
+
+    /// Obtain the field display enum.
+    pub fn display(self: &Self) -> proto::FieldDisplay
+    {
+        unsafe{
+            return (*self.hfi).display;
+        }
+    }
+}
+use core::fmt::Debug;
+impl Debug for HeaderFieldInfo {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "HeaderFieldInfo {{ ")?;
+        write!(f, "name: \"{}\", ", self.name())?;
+        write!(f, "abbrev: \"{}\", ", self.abbrev())?;
+        write!(f, "type_: {:?}, ", self.type_())?;
+        //~ write!(f, "display: {:?}", self.display())?;  // This segfaults, somewhere in 'gimli'.
+        write!(f, "}}")
+    }
+}
+
+/// Struct to represent field information, serves as a wrapper around the `field_info` C struct.
+pub struct FieldInfo
+{
+    fi: *const proto::field_info
+}
+
+impl FieldInfo
+{
+    /// Function to make this structure from a raw pointer.
+    pub unsafe fn from_ptr(field_info: *const proto::field_info) -> FieldInfo {
+        if (field_info.is_null())
+        {
+            panic!("Field Info from nullptr.");
+        }
+        return FieldInfo { fi: field_info };
+    }
+
+    /// Obtain the header field info for this field.
+    pub fn hfinfo(self: &Self) -> Result<HeaderFieldInfo, &'static str> 
+    {
+        unsafe
+        {
+            if ((*self.fi).hfinfo.is_null())
+            {
+                return Err("No hfinfo provided");
+            }
+            return Ok(HeaderFieldInfo::from_ptr((*self.fi).hfinfo));
+        }
+    }
+
+    /// current start of data in field_info.ds_tvb
+    pub fn start(self: &Self) -> i32
+    {
+        unsafe {
+            (*self.fi).start
+        }
+    }
+
+    /// current data length of item in field_info.ds_tvb
+    pub fn length(self: &Self) -> i32
+    {
+        unsafe {
+            (*self.fi).length
+        }
+    }
+
+    /// data source tvbuff 
+    pub fn ds_tvb(self: &Self) -> Option<TVB>
+    {
+        unsafe
+        {
+            if ((*self.fi).ds_tvb.is_null())
+            {
+                return None;
+            }
+            return Some(TVB::from_ptr((*self.fi).ds_tvb));
+        }
+    }
+
+}
+
 /// Struct to represent a protocol tree, serves as a wrapper around the `proto_tree_*` C functions.
 pub struct ProtoTree {
     tree: *mut proto::proto_tree,
@@ -112,6 +245,30 @@ impl ProtoTree {
                 retval,
             );
         }
+    }
+
+    pub fn all_finfos(self: &mut Self) -> Vec<FieldInfo>
+    {
+        let mut res : Vec<FieldInfo> = Vec::new();
+
+        // see wslua_field.c function wslua_all_field_infos
+        if (self.tree.is_null())  // Not too sure when this happens... tree seems to be null when first invoked?
+        {
+            return res;
+        }
+        unsafe {
+            let fields = proto::proto_all_finfos(self.tree);
+            for i in 0..(*fields).len()
+            {
+                let field = std::mem::transmute::<*mut libc::c_void, *const proto::field_info>((*fields).index(i as isize));
+                res.push(FieldInfo::from_ptr(field));
+            }
+            glib::g_ptr_array_free(fields, true);
+            // The field info's actually stay in scope, as they are part of the proto datastructure.
+            // the lua part also persists them after they're gone.
+
+        }
+        return res;
     }
 }
 

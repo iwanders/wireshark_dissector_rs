@@ -48,13 +48,14 @@ extern "C" fn dissect_protocol_function(
     let mut tvb: epan::TVB = unsafe { epan::TVB::from_ptr(tvb) };
 
     // A temporary to hold the dissector.
-    let mut dissector_tmp: Option<Box<dyn Dissector>>;
+    let mut dissector_tmp: Option<Box<dyn Dissector>> = None;
 
     // Move our dissector pointer, from a mutable static, so this is unsafe.
     unsafe {
         //~ println!("thread Claiming the dissector: {:?}", thread::current().id());
         //~ let bt = Backtrace::new();
         //~ println!("{:?}", bt);
+        //~ dbg!(&dissector_tmp);
         if !DISSECTOR_PTR.is_some() {
             //~ return tvb.reported_length() as u32;
             //~ return -1 as i32;
@@ -69,7 +70,7 @@ extern "C" fn dissect_protocol_function(
 
     // Move the pointer back.
     unsafe {
-        //~ println!("thread returning the dissector: {:?}", thread::current().id());
+        //~ println!("thread returning the dissector: ");
         //~ let bt = Backtrace::new();
         //~ println!("{:?}", bt);
 

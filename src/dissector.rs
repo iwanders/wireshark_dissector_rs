@@ -1,6 +1,7 @@
 use crate::epan;
 use crate::util;
 
+use core::fmt::Debug;
 /// The trait the dissector must adhere to.
 pub trait Dissector {
     /// This function must return a vector of all the possible fields the dissector will end up using.
@@ -33,6 +34,11 @@ pub trait Dissector {
 
     fn heuristic_applies(self: &mut Self, _proto: &mut epan::ProtoTree, _tvb: &mut epan::TVB) -> bool {
         false
+    }
+}
+impl Debug for dyn Dissector {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "Dissector{{{}}}", self.get_protocol_name().0)
     }
 }
 
