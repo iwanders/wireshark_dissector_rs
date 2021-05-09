@@ -3,26 +3,33 @@ use crate::epan;
 use crate::util;
 
 /*
-    After placing an item, dissect_protocol_function for registered protocols (including our own protocol) may be called
-    but we have already taken the dissector out of the DISSECTOR_PTR global, so we don't have a dissector to work with
-    and we can't do anything. Popping all bytes from the tvb, or none doesn't help.
-
-    This ONLY happens because the usb dissector is bad and forces us to be re-entrant. TCP works fine.
-    The issue seems to be that usb dissector does `usb_tap = register_tap("usb");` and because of that it seems to call
-    our dissector again when we add a field, seems to happen from the tap itself?
-    Or even only seems to happen if we register as something behind usb hid...?
-
+    Known issues:
+    Registering as a subdissector of usb is problematic, usb sets up a TAP, which means every field we add in our
+    dissection method results in the tap being triggered and somehow that calls our dissector again while the dissection
+    pointer isn't available in the static global storage.
 */
 
 use crate::dissector::Dissector;
 use crate::dissector::PacketField;
 
+impl From<PacketField> for epan::proto::header_field_info {
+    fn from(field: PacketField) -> Self {
+        epan::proto::header_field_info {
+            name: util::perm_string_ptr(field.name),
+            abbrev: util::perm_string_ptr(field.abbrev),
+            type_: field.field_type.into(),
+            display: field.display.into(),
+            ..Default::default()
+        }
+    }
+}
+
 // Global state
 static mut DISSECTOR_PTR: Option<Box<dyn Dissector>> = None;
 static mut HF_ENTRIES: Option<Vec<epan::proto::hf_register_info>> = None;
-static mut PROTO_ID: i32 = -1;
+static mut PROTO_ID: i32 = -1; // Todo? change into a newtype.
 
-/// Pass the dissector for setup.
+/// Pass the dissector for setup, this is the main entry function that registers the plugin.
 pub fn setup(d: Box<dyn Dissector>) {
     unsafe {
         // Register our two global functions.
@@ -37,6 +44,7 @@ pub fn setup(d: Box<dyn Dissector>) {
     }
 }
 
+/// Global dissection function that retrieves the dissector from the singleton, calls dissect and returns it.
 extern "C" fn dissect_protocol_function(
     tvb: *mut epan::tvbuff::tvbuff_t,
     _packet_info: *mut epan::packet_info::packet_info,
@@ -48,17 +56,11 @@ extern "C" fn dissect_protocol_function(
     let mut tvb: epan::TVB = unsafe { epan::TVB::from_ptr(tvb) };
 
     // A temporary to hold the dissector.
-    let mut dissector_tmp: Option<Box<dyn Dissector>> = None;
+    let mut dissector_tmp: Option<Box<dyn Dissector>>;
 
     // Move our dissector pointer, from a mutable static, so this is unsafe.
     unsafe {
-        //~ println!("thread Claiming the dissector: {:?}", thread::current().id());
-        //~ let bt = Backtrace::new();
-        //~ println!("{:?}", bt);
-        //~ dbg!(&dissector_tmp);
         if !DISSECTOR_PTR.is_some() {
-            //~ return tvb.reported_length() as u32;
-            //~ return -1 as i32;
             panic!("Trying to obtain the dissector while it's in use.");
         }
 
@@ -70,10 +72,6 @@ extern "C" fn dissect_protocol_function(
 
     // Move the pointer back.
     unsafe {
-        //~ println!("thread returning the dissector: ");
-        //~ let bt = Backtrace::new();
-        //~ println!("{:?}", bt);
-
         DISSECTOR_PTR = Some(dissector_tmp.unwrap());
     }
 
@@ -81,24 +79,27 @@ extern "C" fn dissect_protocol_function(
     return used_bytes as i32;
 }
 
+/// Global heuristic dissector function.
 extern "C" fn heuristic_dissector_function(
     tvb: *mut epan::tvbuff::tvbuff_t,
     _packet_info: *mut epan::packet_info::packet_info,
     tree: *mut epan::proto::proto_tree,
     _data: *mut libc::c_void,
 ) -> bool {
+    // Retrieve the dissector from the global static.
     let mut dissector_tmp_option: Option<Box<dyn Dissector>>;
     unsafe {
         dissector_tmp_option = Some(DISSECTOR_PTR.take().unwrap());
     }
 
+    // Make our objects and invoke the heuristic dissector method.
     let mut proto: epan::ProtoTree = unsafe { epan::ProtoTree::from_ptr(tree) };
     let mut tvb: epan::TVB = unsafe { epan::TVB::from_ptr(tvb) };
 
     let applies = dissector_tmp_option
         .as_mut()
         .unwrap()
-        .heuristic_applies(&mut proto, &mut tvb);
+        .heuristic_dissect(&mut proto, &mut tvb);
 
     // Store our pointer again.
     unsafe {
@@ -107,6 +108,7 @@ extern "C" fn heuristic_dissector_function(
     return applies;
 }
 
+/// Global function to register our protocol.
 extern "C" fn proto_register_protoinfo() {
     // We're only called once, ensure we have our HF entries setup.
     unsafe {
@@ -124,6 +126,7 @@ extern "C" fn proto_register_protoinfo() {
 
         // Make a vector to hold the HFIndex entries.
         let mut field_ids: Vec<epan::proto::HFIndex> = Vec::new();
+
         // Obtain the fields we are about to register.
         let fields_input = dissector_tmp.get_fields();
         unsafe {
@@ -188,6 +191,7 @@ extern "C" fn proto_register_protoinfo() {
     }
 }
 
+/// Global handoff function to register the dissector.
 extern "C" fn proto_register_handoff() {
     // A handoff routine associates a protocol handler with the protocol’s traffic. It consists of two major steps:
     // The first step is to create a dissector handle, which is a handle associated with the protocol and the function called to do the actual dissecting.
@@ -205,13 +209,16 @@ extern "C" fn proto_register_handoff() {
 
         for registration in dissector_tmp.get_registration() {
             match registration {
+                // Register as a post dissector
                 dissector::Registration::Post {} => {
                     epan::packet::register_postdissector(dissector_handle);
                 }
+                // Register in a specific table with an integer.
                 dissector::Registration::UInt { abbrev, pattern } => {
                     epan::packet::dissector_add_uint(util::perm_string_ptr(abbrev), pattern, dissector_handle);
                 }
 
+                // Register in a specific table with ranges of integers.
                 dissector::Registration::UIntRange { abbrev, ranges } => {
                     let mut input: epan::range::epan_range = Default::default();
                     for i in 0..ranges.len() {
@@ -227,10 +234,12 @@ extern "C" fn proto_register_handoff() {
                     );
                 }
 
+                // Register for decode as functionality.
                 dissector::Registration::DecodeAs { abbrev } => {
                     epan::packet::dissector_add_for_decode_as(util::perm_string_ptr(abbrev), dissector_handle);
                 }
 
+                // Register as a heuristic dissector.
                 dissector::Registration::Heuristic {
                     table,
                     display_name,

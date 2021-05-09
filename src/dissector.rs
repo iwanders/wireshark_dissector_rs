@@ -1,7 +1,6 @@
 use crate::epan;
-use crate::util;
-
 use core::fmt::Debug;
+
 /// The trait the dissector must adhere to.
 pub trait Dissector {
     /// This function must return a vector of all the possible fields the dissector will end up using.
@@ -32,7 +31,8 @@ pub trait Dissector {
     /// subtree elements to protocol items.
     fn set_tree_indices(self: &mut Self, _ett_indices: Vec<epan::proto::ETTIndex>) {}
 
-    fn heuristic_applies(self: &mut Self, _proto: &mut epan::ProtoTree, _tvb: &mut epan::TVB) -> bool {
+    /// This function is called when using a heuristic dissection.
+    fn heuristic_dissect(self: &mut Self, _proto: &mut epan::ProtoTree, _tvb: &mut epan::TVB) -> bool {
         false
     }
 }
@@ -46,25 +46,14 @@ impl Debug for dyn Dissector {
 pub type FieldType = epan::ftypes::ftenum;
 pub type FieldDisplay = epan::proto::FieldDisplay;
 
-/// Specification for a field that can be displayed.
+/// Specification for a field that can be displayed, simpler form of field_info on the C side.
+// todo: Should we consolidate this (somehow?!) with epan::HeaderFieldInfo's wrapper for inspection?
 #[derive(Debug, Copy, Clone)]
 pub struct PacketField {
     pub name: &'static str,
     pub abbrev: &'static str,
     pub field_type: FieldType,
     pub display: FieldDisplay,
-}
-
-impl From<PacketField> for epan::proto::header_field_info {
-    fn from(field: PacketField) -> Self {
-        epan::proto::header_field_info {
-            name: util::perm_string_ptr(field.name),
-            abbrev: util::perm_string_ptr(field.abbrev),
-            type_: field.field_type.into(),
-            display: field.display.into(),
-            ..Default::default()
-        }
-    }
 }
 
 // https://rust-lang.github.io/rfcs/0418-struct-variants.html
@@ -83,7 +72,7 @@ pub enum Registration {
     },
     /// Register this dissector for manual 'decode as' functionality.
     DecodeAs { abbrev: &'static str },
-    /// As a heuristic dissector, uses the names from get_protocol_name() for registration.
+    /// As a heuristic dissector for the provided table and using display names from this.
     Heuristic {
         table: &'static str,
         display_name: &'static str,

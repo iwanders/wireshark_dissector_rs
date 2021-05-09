@@ -79,7 +79,6 @@ impl MyDissector {
 
 impl dissector::Dissector for MyDissector {
     fn get_fields(self: &Self) -> Vec<dissector::PacketField> {
-        println!("lib side get_fields");
         let mut f = Vec::new();
         f.push(MyDissector::FIELD1);
         f.push(MyDissector::FIELD2);
@@ -94,32 +93,39 @@ impl dissector::Dissector for MyDissector {
     }
 
     fn dissect(self: &mut Self, proto: &mut epan::ProtoTree, tvb: &mut epan::TVB) -> usize {
-        //~ return self.dissect_displaylight(dissection);
-        //~ println!("remaining_bytes: {:?}", tvb.remaining_bytes(0));
+        {
+            proto.add_item(
+                self.get_id(&MyDissector::FIELD2),
+                tvb,
+                0,
+                1,
+                epan::proto::Encoding::BIG_ENDIAN,
+            );
+        }
         let mut offset: usize = 0;
         for field in proto.all_finfos() {
             match field.hfinfo() {
                 Ok(v) => {
-                    if (v.abbrev() == "usb.data_fragment") {
+                    if v.abbrev() == "usb.data_fragment" {
                         offset = field.start() as usize;
                     }
                 }
                 Err(e) => println!("{}", e),
             };
         }
-        if (offset == 0) {
+        if offset == 0 {
             return tvb.reported_length(); // Nothing to do here, move along.
         }
 
         let mut item_entry = proto.add_item(
-            self.get_id(&MyDissector::FIELD64),
+            self.get_id(&MyDissector::FIELD2),
             tvb,
             offset,
             1,
             epan::proto::Encoding::BIG_ENDIAN,
         );
         let mut fold_thing = item_entry.add_subtree(self.get_tree_id(TreeIdentifier::Main));
-        //~ let fold_thing = &mut proto;
+
         fold_thing.add_item(
             self.get_id(&MyDissector::FIELD3),
             tvb,
@@ -137,6 +143,8 @@ impl dissector::Dissector for MyDissector {
         if retval % 2 == 0 {
             item.prepend_text("foo");
         }
+        let _more_folds = item.add_subtree(self.get_tree_id(TreeIdentifier::FirstElements));
+
         tvb.reported_length()
     }
 
@@ -159,8 +167,8 @@ impl dissector::Dissector for MyDissector {
             //~ pattern: 8995,
             //~ },
             //~ dissector::Registration::UInt {
-            //~ abbrev: "tcp.port",
-            //~ pattern: 443,
+            //~ abbrev: "udp.port",
+            //~ pattern: 69,
             //~ },
             //~ dissector::Registration::UInt {
             //~ abbrev: "usb.device",
@@ -169,12 +177,6 @@ impl dissector::Dissector for MyDissector {
             //~ dissector::Registration::UInt {
             //~ abbrev: "usb.device",
             //~ pattern: 0x00030007,
-            //~ },
-            //~ dissector::Registration::Heuristic {
-            //~ table: "usb.control",
-            //~ internal_name: "dummy_heuristic",
-            //~ display_name: "Dummy Heuristic",
-            //~ enabled: true,
             //~ },
         ];
     }
@@ -191,7 +193,6 @@ impl dissector::Dissector for MyDissector {
 // This function is the main entry point where we can do our setup.
 #[no_mangle]
 pub fn plugin_register() {
-    println!("dlksjflskd");
     let z = Box::new(MyDissector::new());
     plugin::setup(z);
 }

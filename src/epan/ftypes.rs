@@ -79,6 +79,7 @@ pub union fvalue_t_value_union {
     ustring: *const libc::c_char,
     bytes: *const libc::c_char,
 
+    // There's more, but I don't want to implement those;
     //~ ipv4_addr_and_mask	ipv4;
     //~ ipv6_addr_and_prefix	ipv6;
     //~ e_guid_t		guid;

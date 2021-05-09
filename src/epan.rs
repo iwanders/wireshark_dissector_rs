@@ -143,7 +143,7 @@ pub struct HeaderFieldInfo {
 impl HeaderFieldInfo {
     /// Function to make this structure from a raw pointer.
     pub unsafe fn from_ptr(header_field_info: *const proto::header_field_info) -> HeaderFieldInfo {
-        if (header_field_info.is_null()) {
+        if header_field_info.is_null() {
             panic!("HeaderFieldInfo from nullptr.");
         }
         return HeaderFieldInfo { hfi: header_field_info };
@@ -205,7 +205,7 @@ pub struct FieldInfo {
 impl FieldInfo {
     /// Function to make this structure from a raw pointer.
     pub unsafe fn from_ptr(field_info: *const proto::field_info) -> FieldInfo {
-        if (field_info.is_null()) {
+        if field_info.is_null() {
             panic!("Field Info from nullptr.");
         }
         return FieldInfo { fi: field_info };
@@ -214,7 +214,7 @@ impl FieldInfo {
     /// Obtain the header field info for this field.
     pub fn hfinfo(self: &Self) -> Result<HeaderFieldInfo, &'static str> {
         unsafe {
-            if ((*self.fi).hfinfo.is_null()) {
+            if (*self.fi).hfinfo.is_null() {
                 return Err("No hfinfo provided");
             }
             return Ok(HeaderFieldInfo::from_ptr((*self.fi).hfinfo));
@@ -234,7 +234,7 @@ impl FieldInfo {
     /// data source tvbuff
     pub fn ds_tvb(self: &Self) -> Option<TVB> {
         unsafe {
-            if ((*self.fi).ds_tvb.is_null()) {
+            if (*self.fi).ds_tvb.is_null() {
                 return None;
             }
             return Some(TVB::from_ptr((*self.fi).ds_tvb));
@@ -314,11 +314,12 @@ impl ProtoTree {
         }
     }
 
+    /// Function to retrieve all field info's currently associated with the protocol tree.
     pub fn all_finfos(self: &mut Self) -> Vec<FieldInfo> {
         let mut res: Vec<FieldInfo> = Vec::new();
 
         // see wslua_field.c function wslua_all_field_infos
-        if (self.tree.is_null())
+        if self.tree.is_null()
         // Not too sure when this happens... tree seems to be null when first invoked?
         {
             return res;
