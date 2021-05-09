@@ -3,8 +3,8 @@
 
 use super::ftypes::ftenum;
 use super::ftypes::fvalue_t;
-use super::tvbuff::tvbuff_t;
 use super::glib::GPtrArray;
+use super::tvbuff::tvbuff_t;
 
 #[repr(u32)]
 #[derive(Clone, Copy, Debug)]
@@ -20,7 +20,7 @@ pub enum Encoding {
 #[repr(i32)]
 #[derive(Clone, Copy, Debug)]
 pub enum FieldDisplay {
-/* Integral types */
+    /* Integral types */
     BASE_NONE = 0,
     BASE_DEC = 1,
     BASE_HEX = 2,
@@ -28,31 +28,31 @@ pub enum FieldDisplay {
     BASE_DEC_HEX = 4,
     BASE_HEX_DEC = 5,
     BASE_CUSTOM = 6,
-/* Float types */
-    //~ BASE_FLOAT = BASE_NONE, /*< decimal-format float */
+    /* Float types */
+        //~ BASE_FLOAT = BASE_NONE, /*< decimal-format float */
 
-/* String types */
-    //~ STR_ASCII    = BASE_NONE,   /*< shows non-printable ASCII characters as C-style escapes */
-    /* XXX, support for format_text_wsp() ? */
-    STR_UNICODE  = 7,   /*< shows non-printable UNICODE characters as \\uXXXX (XXX for now non-printable characters display depends on UI) */
+    /* String types */
+        //~ STR_ASCII    = BASE_NONE,   /*< shows non-printable ASCII characters as C-style escapes */
+        /* XXX, support for format_text_wsp() ? */
+    STR_UNICODE = 7, /*< shows non-printable UNICODE characters as \\uXXXX (XXX for now non-printable characters display depends on UI) */
 
-/* Byte separators */
-    SEP_DOT      = 8,   /*< hexadecimal bytes with a period (.) between each byte */
-    SEP_DASH     = 9,   /*< hexadecimal bytes with a dash (-) between each byte */
-    SEP_COLON    = 10,  /*< hexadecimal bytes with a colon (:) between each byte */
-    SEP_SPACE    = 11,  /*< hexadecimal bytes with a space between each byte */
+    /* Byte separators */
+    SEP_DOT = 8,    /*< hexadecimal bytes with a period (.) between each byte */
+    SEP_DASH = 9,   /*< hexadecimal bytes with a dash (-) between each byte */
+    SEP_COLON = 10, /*< hexadecimal bytes with a colon (:) between each byte */
+    SEP_SPACE = 11, /*< hexadecimal bytes with a space between each byte */
 
-/* Address types */
-    BASE_NETMASK = 12,  /*< Used for IPv4 address that shouldn't be resolved (like for netmasks) */
+    /* Address types */
+    BASE_NETMASK = 12, /*< Used for IPv4 address that shouldn't be resolved (like for netmasks) */
 
-/* Port types */
-    BASE_PT_UDP  = 13,  /*< UDP port */
-    BASE_PT_TCP  = 14,  /*< TCP port */
-    BASE_PT_DCCP = 15,  /*< DCCP port */
-    BASE_PT_SCTP = 16,  /*< SCTP port */
+    /* Port types */
+    BASE_PT_UDP = 13,  /*< UDP port */
+    BASE_PT_TCP = 14,  /*< TCP port */
+    BASE_PT_DCCP = 15, /*< DCCP port */
+    BASE_PT_SCTP = 16, /*< SCTP port */
 
-/* OUI types */
-    BASE_OUI     = 17 /*< OUI resolution */
+    /* OUI types */
+    BASE_OUI = 17, /*< OUI resolution */
 }
 impl FieldDisplay {
     pub const BASE_FLOAT: FieldDisplay = FieldDisplay::BASE_NONE;
@@ -131,14 +131,20 @@ impl Debug for header_field_info {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         use std::ffi::CStr;
         write!(f, "header_field_info {{ ")?;
-        unsafe{
+        unsafe {
             match CStr::from_ptr(self.name).to_str() {
-                Ok (t) => {write!(f, "name: {:?}, ", t)?;},
-                Err(_) => {write!(f, "name: 0x0, ")?;},
+                Ok(t) => {
+                    write!(f, "name: {:?}, ", t)?;
+                }
+                Err(_) => {
+                    write!(f, "name: 0x0, ")?;
+                }
             }
             match CStr::from_ptr(self.abbrev).to_str() {
-                Ok (t) => {write!(f, "abbrev: {:?}, ", t)?;},
-                Err(_) => {write!(f, "abbrev: 0x0, ")?},
+                Ok(t) => {
+                    write!(f, "abbrev: {:?}, ", t)?;
+                }
+                Err(_) => write!(f, "abbrev: 0x0, ")?,
             }
         }
         write!(f, "type_: {:?}, ", self.type_)?;
@@ -179,22 +185,30 @@ const ITEM_LABEL_LENGTH: usize = 240;
 #[derive(Debug)]
 #[repr(C)]
 pub struct item_label_t {
-    representation: [libc::c_char; ITEM_LABEL_LENGTH]
+    representation: [libc::c_char; ITEM_LABEL_LENGTH],
 }
 
 #[derive(Debug)]
 #[repr(C)]
-pub struct field_info
-{
-    pub hfinfo: *const header_field_info,          /**< pointer to registered field information */
-    pub start: i32,           /**< current start of data in field_info.ds_tvb */
-    pub length: i32,          /**< current data length of item in field_info.ds_tvb */
-    pub appendix_start: i32,  /**< start of appendix data */
-    pub appendix_length: i32, /**< length of appendix data */
-    pub tree_type: i32,       /**< one of ETT_ or -1 */
-    pub flags: u32,           /**< bitfield like FI_GENERATED, ... */
-    pub rep: *const item_label_t,             /**< string for GUI tree */
-    pub ds_tvb: *mut tvbuff_t,          /**< data source tvbuff */
+pub struct field_info {
+    pub hfinfo: *const header_field_info,
+    /**< pointer to registered field information */
+    pub start: i32,
+    /**< current start of data in field_info.ds_tvb */
+    pub length: i32,
+    /**< current data length of item in field_info.ds_tvb */
+    pub appendix_start: i32,
+    /**< start of appendix data */
+    pub appendix_length: i32,
+    /**< length of appendix data */
+    pub tree_type: i32,
+    /**< one of ETT_ or -1 */
+    pub flags: u32,
+    /**< bitfield like FI_GENERATED, ... */
+    pub rep: *const item_label_t,
+    /**< string for GUI tree */
+    pub ds_tvb: *mut tvbuff_t,
+    /**< data source tvbuff */
     pub value: fvalue_t,
 }
 

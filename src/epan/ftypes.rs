@@ -30,29 +30,28 @@ pub enum ftenum {
     DOUBLE,
     ABSOLUTE_TIME,
     RELATIVE_TIME,
-    STRING,	/* counted string, with no null terminator */
-    STRINGZ,	/* null-terminated string */
-    UINT_STRING,	/* counted string, with count being the first part of the value */
+    STRING,      /* counted string, with no null terminator */
+    STRINGZ,     /* null-terminated string */
+    UINT_STRING, /* counted string, with count being the first part of the value */
     ETHER,
     BYTES,
     UINT_BYTES,
     IPv4,
     IPv6,
     IPXNET,
-    FRAMENUM,	/* a UINT32, but if selected lets you go to frame with that number */
-    GUID,	/* GUID, UUID */
-    OID,		/* OBJECT IDENTIFIER */
+    FRAMENUM, /* a UINT32, but if selected lets you go to frame with that number */
+    GUID,     /* GUID, UUID */
+    OID,      /* OBJECT IDENTIFIER */
     EUI64,
     AX25,
     VINES,
-    REL_OID,	/* RELATIVE-OID */
+    REL_OID, /* RELATIVE-OID */
     SYSTEM_ID,
-    STRINGZPAD,	/* null-padded string */
+    STRINGZPAD, /* null-padded string */
     FCWWN,
-    STRINGZTRUNC,	/* null-truncated string */
-    NUM_TYPES /* last item number plus one */
+    STRINGZTRUNC, /* null-truncated string */
+    NUM_TYPES,    /* last item number plus one */
 }
-
 
 impl Default for ftenum {
     fn default() -> Self {
@@ -61,7 +60,6 @@ impl Default for ftenum {
 }
 
 unsafe impl Send for ftenum {}
-
 
 #[repr(C)]
 pub struct ftype_t {
@@ -88,7 +86,6 @@ pub union fvalue_t_value_union {
     //~ protocol_value_t 	protocol;
     //~ guint16			sfloat_ieee_11073;
     //~ guint32			float_ieee_11073;
-
     _size: [u8; 24], // determined with sizeof from C.
 }
 
@@ -100,13 +97,13 @@ impl Debug for fvalue_t_value_union {
 
 #[derive(Debug)]
 #[repr(C)]
-pub struct fvalue_t{
-        pub ftype: *const ftype_t,
-        pub value: fvalue_t_value_union,
+pub struct fvalue_t {
+    pub ftype: *const ftype_t,
+    pub value: fvalue_t_value_union,
 
-	/* The following is provided for private use
-	 * by the fvalue. */
-        fvalue_gboolean1: bool,
+    /* The following is provided for private use
+     * by the fvalue. */
+    fvalue_gboolean1: bool,
 }
 
 #[link(name = "wireshark")]
@@ -120,7 +117,6 @@ extern "C" {
     pub fn fvalue_get_floating(fv: *const fvalue_t) -> f64;
 
     pub fn fvalue_get(fv: *const fvalue_t) -> *const libc::c_void;
-
 
     //~ pub fn fvalue_type_name(fv: *const fvalue_t) -> *const libc::c_char;  // Doesn't exist after linking...?
     //~ pub fn fvalue_length(fv: *const fvalue_t) -> u32;  // likewise, doesn't exist after linking? odd

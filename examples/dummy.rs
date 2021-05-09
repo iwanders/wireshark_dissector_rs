@@ -96,25 +96,19 @@ impl dissector::Dissector for MyDissector {
     fn dissect(self: &mut Self, proto: &mut epan::ProtoTree, tvb: &mut epan::TVB) -> usize {
         //~ return self.dissect_displaylight(dissection);
         //~ println!("remaining_bytes: {:?}", tvb.remaining_bytes(0));
-        let mut offset : usize = 0;
-        for field in proto.all_finfos()
-        {
-            println!("{:?}", field);
+        let mut offset: usize = 0;
+        for field in proto.all_finfos() {
             match field.hfinfo() {
                 Ok(v) => {
-                    if (v.abbrev() == "usb.data_fragment")
-                    {
+                    if (v.abbrev() == "usb.data_fragment") {
                         offset = field.start() as usize;
                     }
-                    println!("{:?} {:?}", v, field.value());
                 }
-                Err(e) => println!("{}", e)
+                Err(e) => println!("{}", e),
             };
         }
-
-        if (offset == 0)
-        {
-            return tvb.reported_length();
+        if (offset == 0) {
+            return tvb.reported_length(); // Nothing to do here, move along.
         }
 
         let mut item_entry = proto.add_item(
@@ -129,14 +123,14 @@ impl dissector::Dissector for MyDissector {
         fold_thing.add_item(
             self.get_id(&MyDissector::FIELD3),
             tvb,
-            offset+1,
+            offset + 1,
             2,
             epan::proto::Encoding::BIG_ENDIAN,
         );
         let (mut item, retval) = fold_thing.add_item_ret_int(
             self.get_id(&MyDissector::FIELD32),
             tvb,
-            offset+1,
+            offset + 1,
             4,
             epan::proto::Encoding::BIG_ENDIAN,
         );
@@ -157,30 +151,30 @@ impl dissector::Dissector for MyDissector {
             //~ dissector::Registration::DecodeAs { abbrev: "tcp.port" },
             //~ dissector::Registration::DecodeAs { abbrev: "usb.product" },
             //~ dissector::Registration::UInt {
-                //~ abbrev: "usb.product",
-                //~ pattern: 0x15320226,
+            //~ abbrev: "usb.product",
+            //~ pattern: 0x15320226,
             //~ },
             //~ dissector::Registration::UInt {
-                //~ abbrev: "udp.dstport",
-                //~ pattern: 8995,
+            //~ abbrev: "udp.dstport",
+            //~ pattern: 8995,
             //~ },
             //~ dissector::Registration::UInt {
-                //~ abbrev: "tcp.port",
-                //~ pattern: 443,
+            //~ abbrev: "tcp.port",
+            //~ pattern: 443,
             //~ },
             //~ dissector::Registration::UInt {
-                //~ abbrev: "usb.device",
-                //~ pattern: 0x00030003,
+            //~ abbrev: "usb.device",
+            //~ pattern: 0x00030003,
             //~ },
             //~ dissector::Registration::UInt {
-                //~ abbrev: "usb.device",
-                //~ pattern: 0x00030007,
+            //~ abbrev: "usb.device",
+            //~ pattern: 0x00030007,
             //~ },
             //~ dissector::Registration::Heuristic {
-                //~ table: "usb.control",
-                //~ internal_name: "dummy_heuristic",
-                //~ display_name: "Dummy Heuristic",
-                //~ enabled: true,
+            //~ table: "usb.control",
+            //~ internal_name: "dummy_heuristic",
+            //~ display_name: "Dummy Heuristic",
+            //~ enabled: true,
             //~ },
         ];
     }

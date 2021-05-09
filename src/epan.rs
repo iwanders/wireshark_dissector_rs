@@ -25,12 +25,12 @@
 
 // These files follow the same structure as the header files.
 pub mod ftypes;
+pub mod glib;
 pub mod packet;
 pub mod packet_info;
 pub mod proto;
 pub mod range;
 pub mod tvbuff;
-pub mod glib;
 
 /*
    Dissector
@@ -60,60 +60,45 @@ pub mod glib;
     Todo: switch from pointers to references with proper lifetime if that's possible?
 */
 
-pub struct FValue<'a>
-{
-    value: &'a ftypes::fvalue_t
+/// Wrapper around the fvalue_t found in the FieldInfo struct
+pub struct FValue<'a> {
+    value: &'a ftypes::fvalue_t,
 }
-impl FValue<'_>
-{
+impl FValue<'_> {
+    /// Create the FValue from the input argument.
     pub unsafe fn from(v: &ftypes::fvalue_t) -> FValue {
+        // This may even be safe??
         return FValue { value: v };
     }
 
-    pub fn ftenum(&self) -> ftypes::ftenum
-    {
-        unsafe
-        {
-            ftypes::fvalue_type_ftenum(self.value as *const ftypes::fvalue_t)
-        }
+    /// Obtain the enum that represents the type of data held by the value.
+    pub fn ftenum(&self) -> ftypes::ftenum {
+        unsafe { ftypes::fvalue_type_ftenum(self.value as *const ftypes::fvalue_t) }
     }
 
-    pub fn get_uinteger(&self) -> u32
-    {
-        unsafe
-        {
-            ftypes::fvalue_get_uinteger(self.value as *const ftypes::fvalue_t)
-        }
+    /// Retrieve an unsigned integer, should only be called if ftenum returns an integer-type.
+    pub fn get_uinteger(&self) -> u32 {
+        unsafe { ftypes::fvalue_get_uinteger(self.value as *const ftypes::fvalue_t) }
     }
 
-    pub fn get_sinteger(&self) -> i32
-    {
-        unsafe
-        {
-            ftypes::fvalue_get_sinteger(self.value as *const ftypes::fvalue_t)
-        }
-    }
-    pub fn get_uinteger64(&self) -> u64
-    {
-        unsafe
-        {
-            ftypes::fvalue_get_uinteger64(self.value as *const ftypes::fvalue_t)
-        }
-    }
-    pub fn get_sinteger64(&self) -> i64
-    {
-        unsafe
-        {
-            ftypes::fvalue_get_sinteger64(self.value as *const ftypes::fvalue_t)
-        }
+    /// Retrieve an unsigned integer, should only be called if ftenum returns an signed integer-type.
+    pub fn get_sinteger(&self) -> i32 {
+        unsafe { ftypes::fvalue_get_sinteger(self.value as *const ftypes::fvalue_t) }
     }
 
-    pub fn get_floating(&self) -> f64
-    {
-        unsafe
-        {
-            ftypes::fvalue_get_floating(self.value as *const ftypes::fvalue_t)
-        }
+    /// Retrieve an unsigned 64 bit integer, should only be called if ftenum returns an 64 bit integer-type.
+    pub fn get_uinteger64(&self) -> u64 {
+        unsafe { ftypes::fvalue_get_uinteger64(self.value as *const ftypes::fvalue_t) }
+    }
+
+    /// Retrieve an unsigned 64 bit signed integer, should only be called if ftenum returns an 64 bit signed integer-type.
+    pub fn get_sinteger64(&self) -> i64 {
+        unsafe { ftypes::fvalue_get_sinteger64(self.value as *const ftypes::fvalue_t) }
+    }
+
+    /// Retrieve an floating point value, should only be called if ftenum returns an a floating point type.
+    pub fn get_floating(&self) -> f64 {
+        unsafe { ftypes::fvalue_get_floating(self.value as *const ftypes::fvalue_t) }
     }
 
     /*
@@ -137,8 +122,7 @@ impl Debug for FValue<'_> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "FValue<'_> {{ ")?;
         write!(f, "type: \"{:?}\", ", self.ftenum())?;
-        match self.ftenum()
-        {
+        match self.ftenum() {
             ftypes::ftenum::UINT8 => write!(f, "value: {:?}", self.get_uinteger())?,
             ftypes::ftenum::UINT16 => write!(f, "value: {:?}", self.get_uinteger())?,
             ftypes::ftenum::UINT32 => write!(f, "value: {:?}", self.get_uinteger())?,
@@ -146,68 +130,60 @@ impl Debug for FValue<'_> {
             ftypes::ftenum::INT16 => write!(f, "value: {:?}", self.get_sinteger())?,
             ftypes::ftenum::INT32 => write!(f, "value: {:?}", self.get_sinteger())?,
             //~ ftypes::ftenum::BYTES => write!(f, "value: {:?}", self.get())?,
-            _ => write!(f, "value: ...")?
+            _ => write!(f, "value: ...")?,
         }
         write!(f, "}}")
     }
 }
 
 /// Struct to represent header field information, serves as a read only wrapper around the `header_field_info` C struct.
-pub struct HeaderFieldInfo
-{
-    hfi: *const proto::header_field_info
+pub struct HeaderFieldInfo {
+    hfi: *const proto::header_field_info,
 }
-impl HeaderFieldInfo
-{
+impl HeaderFieldInfo {
     /// Function to make this structure from a raw pointer.
     pub unsafe fn from_ptr(header_field_info: *const proto::header_field_info) -> HeaderFieldInfo {
-        if (header_field_info.is_null())
-        {
+        if (header_field_info.is_null()) {
             panic!("HeaderFieldInfo from nullptr.");
         }
         return HeaderFieldInfo { hfi: header_field_info };
     }
 
     /// Retrieve the pretty field name
-    pub fn name(self: &Self) -> &str
-    {
+    pub fn name(self: &Self) -> &str {
         use std::ffi::CStr;
-        unsafe{
+        unsafe {
             match CStr::from_ptr((*self.hfi).name).to_str() {
-                Ok (t) => t,
+                Ok(t) => t,
                 Err(_) => "",
             }
         }
     }
 
     /// Retrieve the field abbreviation.
-    pub fn abbrev(self: &Self) -> &str
-    {
+    pub fn abbrev(self: &Self) -> &str {
         use std::ffi::CStr;
-        unsafe{
+        unsafe {
             match CStr::from_ptr((*self.hfi).abbrev).to_str() {
-                Ok (t) => t,
+                Ok(t) => t,
                 Err(_) => "",
             }
         }
     }
 
     /// Obtain the field type enum.
-    pub fn type_(self: &Self) -> ftypes::ftenum
-    {
-        unsafe{
+    pub fn type_(self: &Self) -> ftypes::ftenum {
+        unsafe {
             return (*self.hfi).type_;
         }
     }
 
     /// Obtain the field display enum.
-    pub fn display(self: &Self) -> proto::FieldDisplay
-    {
-        unsafe{
+    pub fn display(self: &Self) -> proto::FieldDisplay {
+        unsafe {
             return (*self.hfi).display;
         }
     }
-
 }
 use core::fmt::Debug;
 impl Debug for HeaderFieldInfo {
@@ -222,29 +198,23 @@ impl Debug for HeaderFieldInfo {
 }
 
 /// Struct to represent field information, serves as a wrapper around the `field_info` C struct.
-pub struct FieldInfo
-{
-    fi: *const proto::field_info
+pub struct FieldInfo {
+    fi: *const proto::field_info,
 }
 
-impl FieldInfo
-{
+impl FieldInfo {
     /// Function to make this structure from a raw pointer.
     pub unsafe fn from_ptr(field_info: *const proto::field_info) -> FieldInfo {
-        if (field_info.is_null())
-        {
+        if (field_info.is_null()) {
             panic!("Field Info from nullptr.");
         }
         return FieldInfo { fi: field_info };
     }
 
     /// Obtain the header field info for this field.
-    pub fn hfinfo(self: &Self) -> Result<HeaderFieldInfo, &'static str> 
-    {
-        unsafe
-        {
-            if ((*self.fi).hfinfo.is_null())
-            {
+    pub fn hfinfo(self: &Self) -> Result<HeaderFieldInfo, &'static str> {
+        unsafe {
+            if ((*self.fi).hfinfo.is_null()) {
                 return Err("No hfinfo provided");
             }
             return Ok(HeaderFieldInfo::from_ptr((*self.fi).hfinfo));
@@ -252,39 +222,27 @@ impl FieldInfo
     }
 
     /// current start of data in field_info.ds_tvb
-    pub fn start(self: &Self) -> i32
-    {
-        unsafe {
-            (*self.fi).start
-        }
+    pub fn start(self: &Self) -> i32 {
+        unsafe { (*self.fi).start }
     }
 
     /// current data length of item in field_info.ds_tvb
-    pub fn length(self: &Self) -> i32
-    {
-        unsafe {
-            (*self.fi).length
-        }
+    pub fn length(self: &Self) -> i32 {
+        unsafe { (*self.fi).length }
     }
 
-    /// data source tvbuff 
-    pub fn ds_tvb(self: &Self) -> Option<TVB>
-    {
-        unsafe
-        {
-            if ((*self.fi).ds_tvb.is_null())
-            {
+    /// data source tvbuff
+    pub fn ds_tvb(self: &Self) -> Option<TVB> {
+        unsafe {
+            if ((*self.fi).ds_tvb.is_null()) {
                 return None;
             }
             return Some(TVB::from_ptr((*self.fi).ds_tvb));
         }
     }
 
-    pub fn value(self: &Self) -> FValue
-    {
-        unsafe{
-            FValue::from(&(*self.fi).value)
-        }
+    pub fn value(self: &Self) -> FValue {
+        unsafe { FValue::from(&(*self.fi).value) }
     }
 }
 impl Debug for FieldInfo {
@@ -297,7 +255,6 @@ impl Debug for FieldInfo {
         write!(f, "}}")
     }
 }
-
 
 /// Struct to represent a protocol tree, serves as a wrapper around the `proto_tree_*` C functions.
 pub struct ProtoTree {
@@ -357,26 +314,25 @@ impl ProtoTree {
         }
     }
 
-    pub fn all_finfos(self: &mut Self) -> Vec<FieldInfo>
-    {
-        let mut res : Vec<FieldInfo> = Vec::new();
+    pub fn all_finfos(self: &mut Self) -> Vec<FieldInfo> {
+        let mut res: Vec<FieldInfo> = Vec::new();
 
         // see wslua_field.c function wslua_all_field_infos
-        if (self.tree.is_null())  // Not too sure when this happens... tree seems to be null when first invoked?
+        if (self.tree.is_null())
+        // Not too sure when this happens... tree seems to be null when first invoked?
         {
             return res;
         }
         unsafe {
             let fields = proto::proto_all_finfos(self.tree);
-            for i in 0..(*fields).len()
-            {
-                let field = std::mem::transmute::<*mut libc::c_void, *const proto::field_info>((*fields).index(i as isize));
+            for i in 0..(*fields).len() {
+                let field =
+                    std::mem::transmute::<*mut libc::c_void, *const proto::field_info>((*fields).index(i as isize));
                 res.push(FieldInfo::from_ptr(field));
             }
             glib::g_ptr_array_free(fields, true);
             // The field info's actually stay in scope, as they are part of the proto datastructure.
             // the lua part also persists them after they're gone.
-
         }
         return res;
     }
