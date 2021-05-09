@@ -99,12 +99,14 @@ impl dissector::Dissector for MyDissector {
         let mut offset : usize = 0;
         for field in proto.all_finfos()
         {
+            println!("{:?}", field);
             match field.hfinfo() {
                 Ok(v) => {
                     if (v.abbrev() == "usb.data_fragment")
                     {
                         offset = field.start() as usize;
                     }
+                    println!("{:?} {:?}", v, field.value());
                 }
                 Err(e) => println!("{}", e)
             };

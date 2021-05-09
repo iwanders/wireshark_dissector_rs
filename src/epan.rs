@@ -60,6 +60,98 @@ pub mod glib;
     Todo: switch from pointers to references with proper lifetime if that's possible?
 */
 
+pub struct FValue<'a>
+{
+    value: &'a ftypes::fvalue_t
+}
+impl FValue<'_>
+{
+    pub unsafe fn from(v: &ftypes::fvalue_t) -> FValue {
+        return FValue { value: v };
+    }
+
+    pub fn ftenum(&self) -> ftypes::ftenum
+    {
+        unsafe
+        {
+            ftypes::fvalue_type_ftenum(self.value as *const ftypes::fvalue_t)
+        }
+    }
+
+    pub fn get_uinteger(&self) -> u32
+    {
+        unsafe
+        {
+            ftypes::fvalue_get_uinteger(self.value as *const ftypes::fvalue_t)
+        }
+    }
+
+    pub fn get_sinteger(&self) -> i32
+    {
+        unsafe
+        {
+            ftypes::fvalue_get_sinteger(self.value as *const ftypes::fvalue_t)
+        }
+    }
+    pub fn get_uinteger64(&self) -> u64
+    {
+        unsafe
+        {
+            ftypes::fvalue_get_uinteger64(self.value as *const ftypes::fvalue_t)
+        }
+    }
+    pub fn get_sinteger64(&self) -> i64
+    {
+        unsafe
+        {
+            ftypes::fvalue_get_sinteger64(self.value as *const ftypes::fvalue_t)
+        }
+    }
+
+    pub fn get_floating(&self) -> f64
+    {
+        unsafe
+        {
+            ftypes::fvalue_get_floating(self.value as *const ftypes::fvalue_t)
+        }
+    }
+
+    /*
+    pub fn get_length(&self) -> usize
+    {
+        unsafe
+        {
+            ftypes::fvalue_length(self.value as *const ftypes::fvalue_t) as usize
+        }
+    }
+
+    pub fn get(self: &Self) -> &[u8] {
+        unsafe {
+            let data_ptr = ftypes::fvalue_get(self.value as *const ftypes::fvalue_t) as *const u8;
+            return std::slice::from_raw_parts(data_ptr, self.get_length());
+        };
+    }
+    */
+}
+impl Debug for FValue<'_> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "FValue<'_> {{ ")?;
+        write!(f, "type: \"{:?}\", ", self.ftenum())?;
+        match self.ftenum()
+        {
+            ftypes::ftenum::UINT8 => write!(f, "value: {:?}", self.get_uinteger())?,
+            ftypes::ftenum::UINT16 => write!(f, "value: {:?}", self.get_uinteger())?,
+            ftypes::ftenum::UINT32 => write!(f, "value: {:?}", self.get_uinteger())?,
+            ftypes::ftenum::INT8 => write!(f, "value: {:?}", self.get_sinteger())?,
+            ftypes::ftenum::INT16 => write!(f, "value: {:?}", self.get_sinteger())?,
+            ftypes::ftenum::INT32 => write!(f, "value: {:?}", self.get_sinteger())?,
+            //~ ftypes::ftenum::BYTES => write!(f, "value: {:?}", self.get())?,
+            _ => write!(f, "value: ...")?
+        }
+        write!(f, "}}")
+    }
+}
+
 /// Struct to represent header field information, serves as a read only wrapper around the `header_field_info` C struct.
 pub struct HeaderFieldInfo
 {
@@ -115,6 +207,7 @@ impl HeaderFieldInfo
             return (*self.hfi).display;
         }
     }
+
 }
 use core::fmt::Debug;
 impl Debug for HeaderFieldInfo {
@@ -187,7 +280,24 @@ impl FieldInfo
         }
     }
 
+    pub fn value(self: &Self) -> FValue
+    {
+        unsafe{
+            FValue::from(&(*self.fi).value)
+        }
+    }
 }
+impl Debug for FieldInfo {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "FieldInfo {{ ")?;
+        write!(f, "hfinfo: \"{:?}\", ", self.hfinfo())?;
+        write!(f, "start: \"{:?}\", ", self.start())?;
+        write!(f, "length: \"{:?}\", ", self.length())?;
+        write!(f, "value: \"{:?}\", ", self.value())?;
+        write!(f, "}}")
+    }
+}
+
 
 /// Struct to represent a protocol tree, serves as a wrapper around the `proto_tree_*` C functions.
 pub struct ProtoTree {

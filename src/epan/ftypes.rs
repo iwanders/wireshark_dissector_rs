@@ -107,5 +107,21 @@ pub struct fvalue_t{
 	/* The following is provided for private use
 	 * by the fvalue. */
         fvalue_gboolean1: bool,
+}
 
+#[link(name = "wireshark")]
+extern "C" {
+    pub fn fvalue_type_ftenum(fv: *const fvalue_t) -> ftenum;
+
+    pub fn fvalue_get_uinteger(fv: *const fvalue_t) -> u32;
+    pub fn fvalue_get_sinteger(fv: *const fvalue_t) -> i32;
+    pub fn fvalue_get_uinteger64(fv: *const fvalue_t) -> u64;
+    pub fn fvalue_get_sinteger64(fv: *const fvalue_t) -> i64;
+    pub fn fvalue_get_floating(fv: *const fvalue_t) -> f64;
+
+    pub fn fvalue_get(fv: *const fvalue_t) -> *const libc::c_void;
+
+
+    //~ pub fn fvalue_type_name(fv: *const fvalue_t) -> *const libc::c_char;  // Doesn't exist after linking...?
+    //~ pub fn fvalue_length(fv: *const fvalue_t) -> u32;  // likewise, doesn't exist after linking? odd
 }

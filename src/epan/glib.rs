@@ -2,8 +2,10 @@
 #[derive(Debug)]
 #[repr(C)]
 pub struct GPtrArray {
-  pdata: *mut *mut libc::c_void,
-  len: u32,
+    // actually defined as a single pointer, but index macro shows its a
+    // list of void pointers behind a pointer.
+    pdata: *mut *mut libc::c_void,
+    len: u32,
 }
 impl GPtrArray
 {
@@ -14,6 +16,7 @@ impl GPtrArray
     pub unsafe fn index(self: &Self, index: isize) -> *mut libc::c_void
     {
         // This is actually a macro in the code.
+        // #define    g_ptr_array_index(array,index_) ((array)->pdata)[index_]
         return *(self.pdata).offset(index);
     }
 }
