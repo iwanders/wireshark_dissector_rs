@@ -32,6 +32,9 @@ pub mod proto;
 pub mod range;
 pub mod tvbuff;
 
+pub type FieldType = ftypes::ftenum;
+pub type FieldDisplay = proto::FieldDisplay;
+pub type Encoding = proto::Encoding;
 /*
    Dissector
        get_fields()

@@ -2,11 +2,26 @@ use crate::epan;
 use core::fmt::Debug;
 
 /// The trait the dissector must adhere to.
+///
+/// During the protocol registration, the [`Dissector::get_fields()`] method is invoked and those fields are registered for
+/// display in wireshark. After registration, the [`Dissector::set_field_indices()`] method is called with the [`PacketField`] elements
+/// that were retrieved from [`Dissector::get_fields()`], paired with the [`epan::proto::HFIndex`] values that should be used when
+/// display dissection results in the protocol tree.
+///
+/// Besides the fields, the dissector also needs to register the subtree foldouts that it will use. During the setup the
+/// [`Dissector::get_tree_count()`] method will be called, which should return the number of foldouts to register. After registration
+/// the [`Dissector::set_tree_indices()`] method is called with a vector of indices to be used.
+///
+/// The final step of protocol registration, during the handoff is registering the dissector to be called on packets.
+/// The desired registrations need to be returned from [`Dissector::get_registration()`], see Registration for more information.
+///
+/// Whenever the dissector is invoked, it's [`Dissector::dissect()`] (or [`Dissector::heuristic_dissect()`]) method will be called with the
+/// protocol tree and data buffer.
 pub trait Dissector {
     /// This function must return a vector of all the possible fields the dissector will end up using.
     fn get_fields(self: &Self) -> Vec<PacketField>;
 
-    /// After the fields are registered, this function is called to provide the new HFIndices that should be used
+    /// After the fields are registered, this function is called to provide the new [`epan::proto::HFIndex`] that should be used
     /// to refer to the registered fields.
     fn set_field_indices(self: &mut Self, hf_indices: Vec<(PacketField, epan::proto::HFIndex)>);
 
@@ -27,7 +42,7 @@ pub trait Dissector {
         return 0;
     }
 
-    /// This function is called after registering the tree foldouts, the provides ETTIndices can be used to add the
+    /// This function is called after registering the tree foldouts, the provides [`epan::proto::ETTIndex`] can be used to add the
     /// subtree elements to protocol items.
     fn set_tree_indices(self: &mut Self, _ett_indices: Vec<epan::proto::ETTIndex>) {}
 
@@ -50,33 +65,51 @@ pub type FieldDisplay = epan::proto::FieldDisplay;
 // todo: Should we consolidate this (somehow?!) with epan::HeaderFieldInfo's wrapper for inspection?
 #[derive(Debug, Copy, Clone)]
 pub struct PacketField {
+    /// This is the name as displayed for this field. (`Field Name`).
     pub name: &'static str,
+    /// This is the abbreviation / internal name of the field (`proto.field_name`).
     pub abbrev: &'static str,
+    /// This denotes the type of field.
     pub field_type: FieldType,
+    /// This specifies how the field should be represented.
     pub display: FieldDisplay,
 }
 
 // https://rust-lang.github.io/rfcs/0418-struct-variants.html
 // This is so fancy
-/// Enum to specify when to invoke this dissector.
+/// Specifies how to register this dissector.
 pub enum Registration {
-    /// Register as a postdissector, this calls `register_postdissector`.
+    /// Register as a postdissector, this calls `register_postdissector`, it is always ran, after all all other dissectors.
     Post,
     /// Register an field abbreviation and a integer value, this calls `dissector_add_uint`, this for example allows
     /// registering based on a port, or based on an USB device id.
-    UInt { abbrev: &'static str, pattern: u32 },
-    /// Register based on a field abbreviation and a range of integers. (At the moment hardcoded limit to 100 ranges).
-    UIntRange {
+    UInt {
+        /// The table to register for.
         abbrev: &'static str,
+        /// The value in this table to register.
+        pattern: u32,
+    },
+    /// Register based on a field abbreviation and a range of integers.
+    UIntRange {
+        /// The table to register for.
+        abbrev: &'static str,
+        /// The value min-max ranges to register for.
         ranges: Vec<(u32, u32)>,
     },
     /// Register this dissector for manual 'decode as' functionality.
-    DecodeAs { abbrev: &'static str },
+    DecodeAs {
+        /// The table to register for.
+        abbrev: &'static str,
+    },
     /// As a heuristic dissector for the provided table and using display names from this.
     Heuristic {
+        /// The table to register for.
         table: &'static str,
+        /// Display name for this heuristic dissector
         display_name: &'static str,
+        /// Internal name to use for the heuristic dissector.
         internal_name: &'static str,
+        /// Does the heuristic dissector start enabled?
         enabled: bool,
     },
 }

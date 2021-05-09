@@ -7,6 +7,7 @@ use wireshark_dissector_rs::plugin;
 // Lift these to make it less verbose.
 type FieldType = dissector::FieldType;
 type FieldDisplay = dissector::FieldDisplay;
+type Encoding = epan::proto::Encoding;
 #[repr(usize)]
 enum TreeIdentifier {
     Main,
@@ -94,13 +95,7 @@ impl dissector::Dissector for MyDissector {
 
     fn dissect(self: &mut Self, proto: &mut epan::ProtoTree, tvb: &mut epan::TVB) -> usize {
         {
-            proto.add_item(
-                self.get_id(&MyDissector::FIELD2),
-                tvb,
-                0,
-                1,
-                epan::proto::Encoding::BIG_ENDIAN,
-            );
+            proto.add_item(self.get_id(&MyDissector::FIELD2), tvb, 0, 1, Encoding::BIG_ENDIAN);
         }
         let mut offset: usize = 0;
         for field in proto.all_finfos() {
@@ -117,13 +112,7 @@ impl dissector::Dissector for MyDissector {
             return tvb.reported_length(); // Nothing to do here, move along.
         }
 
-        let mut item_entry = proto.add_item(
-            self.get_id(&MyDissector::FIELD2),
-            tvb,
-            offset,
-            1,
-            epan::proto::Encoding::BIG_ENDIAN,
-        );
+        let mut item_entry = proto.add_item(self.get_id(&MyDissector::FIELD2), tvb, offset, 1, Encoding::BIG_ENDIAN);
         let mut fold_thing = item_entry.add_subtree(self.get_tree_id(TreeIdentifier::Main));
 
         fold_thing.add_item(
@@ -131,14 +120,14 @@ impl dissector::Dissector for MyDissector {
             tvb,
             offset + 1,
             2,
-            epan::proto::Encoding::BIG_ENDIAN,
+            Encoding::BIG_ENDIAN,
         );
         let (mut item, retval) = fold_thing.add_item_ret_int(
             self.get_id(&MyDissector::FIELD32),
             tvb,
             offset + 1,
             4,
-            epan::proto::Encoding::BIG_ENDIAN,
+            Encoding::BIG_ENDIAN,
         );
         if retval % 2 == 0 {
             item.prepend_text("foo");
@@ -190,7 +179,7 @@ impl dissector::Dissector for MyDissector {
     }
 }
 
-// This function is the main entry point where we can do our setup.
+// This function is the main entry point for the plugin. It's the only symbol called automatically.
 #[no_mangle]
 pub fn plugin_register() {
     let z = Box::new(MyDissector::new());
@@ -203,7 +192,7 @@ static plugin_version: [libc::c_char; 4] = [50, 46, 54, 0]; // "2.6"
 #[no_mangle]
 static plugin_release: [libc::c_char; 4] = [50, 46, 54, 0]; // "2.6"
 
-// New stuff wants this.
+// Later versions of wireshark also want these integers.
 #[no_mangle]
 static plugin_want_major: u32 = 3;
 #[no_mangle]

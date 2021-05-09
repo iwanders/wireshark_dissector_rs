@@ -74,21 +74,23 @@ impl Default for hf_ref_type {
 }
 unsafe impl Send for hf_ref_type {}
 
+/// Opaque proto_tree struct
 #[repr(C)]
 pub struct proto_tree {
     _private: [u8; 0],
 }
+/// Opaque proto_item struct
 #[repr(C)]
 pub struct proto_item {
     _private: [u8; 0],
 }
 
+/// Opaque protocol_t struct
 #[repr(C)]
 pub struct protocol_t {
     _private: [u8; 0],
 }
 
-//~ #[derive(Debug)]
 #[repr(C)]
 pub struct header_field_info {
     pub name: *const libc::c_char,
@@ -164,6 +166,7 @@ impl Debug for header_field_info {
 
 #[derive(Clone, Copy, Debug)]
 #[repr(transparent)]
+/// HF index, this should NEVER be instantiated by the user, they are returned by proto_register_field_array.
 pub struct HFIndex(pub i32);
 
 #[derive(Debug)]
@@ -227,6 +230,7 @@ impl Default for proto_plugin {
     }
 }
 
+/// ETT index, this should NEVER be instantiated by the user, they are returned by proto_register_subtree_array.
 #[derive(Clone, Copy, Debug)]
 #[repr(transparent)]
 pub struct ETTIndex(pub i32);
