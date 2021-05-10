@@ -116,12 +116,12 @@ impl Default for header_field_info {
             type_: Default::default(),
             display: FieldDisplay::BASE_NONE,
             strings: 0 as *const libc::c_char,
-            bitmask: Default::default(),
+            bitmask: 0,
             blurb: 0 as *const libc::c_char,
-            id: Default::default(),
-            parent: Default::default(),
-            ref_type: Default::default(),
-            same_name_pref_id: Default::default(),
+            id: -1,
+            parent: 0,
+            ref_type: hf_ref_type::NONE,
+            same_name_pref_id: -1,
             same_name_next: 0 as *mut header_field_info,
         }
     }
