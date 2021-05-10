@@ -11,7 +11,7 @@ pub mod epan;
 
 /// This module exposes a single plugin method and holds several C functions that are registered and subsequently call
 /// into the Dissector object the user provided.
-pub mod plugin;
+mod plugin;
 
 // Utility module to make persistent C strings.
 mod util;

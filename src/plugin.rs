@@ -24,13 +24,14 @@ impl From<PacketField> for epan::proto::header_field_info {
     }
 }
 
+use std::rc::Rc;
 // Global state
-static mut DISSECTOR_PTR: Option<Box<dyn Dissector>> = None;
+static mut DISSECTOR_PTR: Option<Rc<dyn Dissector>> = None;
 static mut HF_ENTRIES: Option<Vec<epan::proto::hf_register_info>> = None;
 static mut PROTO_ID: i32 = -1; // Todo? change into a newtype.
 
-/// Pass the dissector for setup, this is the main entry function that registers the plugin.
-pub fn setup(d: Box<dyn Dissector>) {
+/// Actual implementation of setup that stores the passed in dissector into the global singleton.
+pub fn setup<T: 'static + Dissector>(d: Rc<T>) {
     unsafe {
         // Register our two global functions.
         let mut plugin_handle_box: Box<epan::proto::proto_plugin> = Box::new(Default::default());
@@ -55,25 +56,11 @@ extern "C" fn dissect_protocol_function(
     let mut proto: epan::ProtoTree = unsafe { epan::ProtoTree::from_ptr(tree) };
     let mut tvb: epan::TVB = unsafe { epan::TVB::from_ptr(tvb) };
 
-    // A temporary to hold the dissector.
-    let mut dissector_tmp: Option<Box<dyn Dissector>>;
-
-    // Move our dissector pointer, from a mutable static, so this is unsafe.
-    unsafe {
-        if !DISSECTOR_PTR.is_some() {
-            panic!("Trying to obtain the dissector while it's in use.");
-        }
-
-        dissector_tmp = Some(DISSECTOR_PTR.take().unwrap());
-    }
+    // A temporary to hold the,  we retrieve from a mutable static, so it's unsafe.
+    let dissector_tmp = unsafe {&DISSECTOR_PTR.as_ref().unwrap()};
 
     // Call the dissector.
-    let used_bytes = dissector_tmp.as_mut().unwrap().dissect(&mut proto, &mut tvb);
-
-    // Move the pointer back.
-    unsafe {
-        DISSECTOR_PTR = Some(dissector_tmp.unwrap());
-    }
+    let used_bytes = dissector_tmp.dissect(&mut proto, &mut tvb);
 
     // Return how much bytes we consumed.
     return used_bytes as i32;
@@ -86,25 +73,15 @@ extern "C" fn heuristic_dissector_function(
     tree: *mut epan::proto::proto_tree,
     _data: *mut libc::c_void,
 ) -> bool {
-    // Retrieve the dissector from the global static.
-    let mut dissector_tmp_option: Option<Box<dyn Dissector>>;
-    unsafe {
-        dissector_tmp_option = Some(DISSECTOR_PTR.take().unwrap());
-    }
+    // A temporary to hold the,  we retrieve from a mutable static, so it's unsafe.
+    let dissector_tmp = unsafe {&DISSECTOR_PTR.as_ref().unwrap()};
 
     // Make our objects and invoke the heuristic dissector method.
     let mut proto: epan::ProtoTree = unsafe { epan::ProtoTree::from_ptr(tree) };
     let mut tvb: epan::TVB = unsafe { epan::TVB::from_ptr(tvb) };
 
-    let applies = dissector_tmp_option
-        .as_mut()
-        .unwrap()
-        .heuristic_dissect(&mut proto, &mut tvb);
+    let applies = dissector_tmp.heuristic_dissect(&mut proto, &mut tvb);
 
-    // Store our pointer again.
-    unsafe {
-        DISSECTOR_PTR = Some(dissector_tmp_option.unwrap());
-    }
     return applies;
 }
 
@@ -114,15 +91,9 @@ extern "C" fn proto_register_protoinfo() {
     unsafe {
         HF_ENTRIES = Some(Vec::new());
     }
-    let mut dissector_tmp_option: Option<Box<dyn Dissector>>;
 
-    // Move the pointer to our object.
     unsafe {
-        dissector_tmp_option = Some(DISSECTOR_PTR.take().unwrap());
-    }
-
-    {
-        let dissector_tmp = dissector_tmp_option.as_mut().unwrap();
+        let dissector_tmp = Rc::<dyn Dissector +'static>::get_mut(DISSECTOR_PTR.as_mut().unwrap()).unwrap();
 
         // Make a vector to hold the HFIndex entries.
         let mut field_ids: Vec<epan::proto::HFIndex> = Vec::new();
@@ -184,11 +155,6 @@ extern "C" fn proto_register_protoinfo() {
             dissector_tmp.set_tree_indices(ett_indices);
         }
     }
-
-    // Store our pointer again.
-    unsafe {
-        DISSECTOR_PTR = Some(dissector_tmp_option.unwrap());
-    }
 }
 
 /// Global handoff function to register the dissector.
@@ -197,13 +163,8 @@ extern "C" fn proto_register_handoff() {
     // The first step is to create a dissector handle, which is a handle associated with the protocol and the function called to do the actual dissecting.
     // The second step is to register the dissector handle so that traffic associated with the protocol calls the dissector.
 
-    let mut dissector_tmp_option: Option<Box<dyn Dissector>>;
     unsafe {
-        dissector_tmp_option = Some(DISSECTOR_PTR.take().unwrap());
-    }
-
-    unsafe {
-        let dissector_tmp = dissector_tmp_option.as_mut().unwrap();
+        let dissector_tmp = unsafe {&DISSECTOR_PTR.as_ref().unwrap()};
 
         let dissector_handle = epan::packet::create_dissector_handle(Some(dissect_protocol_function), PROTO_ID);
 
@@ -261,9 +222,5 @@ extern "C" fn proto_register_handoff() {
                 }
             }
         }
-    }
-
-    unsafe {
-        DISSECTOR_PTR = Some(dissector_tmp_option.unwrap());
     }
 }

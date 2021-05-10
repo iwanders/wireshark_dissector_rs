@@ -1,5 +1,6 @@
 use crate::epan;
 use core::fmt::Debug;
+use crate::plugin;
 
 /// The trait the dissector must adhere to.
 ///
@@ -27,7 +28,7 @@ pub trait Dissector {
 
     /// Called when there is something to dissect, so probably called for every packet. This function must return how
     /// many bytes it used from the tvb.
-    fn dissect(self: &mut Self, proto: &mut epan::ProtoTree, tvb: &mut epan::TVB) -> usize;
+    fn dissect(self: &Self, proto: &mut epan::ProtoTree, tvb: &mut epan::TVB) -> usize;
 
     /// Full name, short_name, filter_name
     fn get_protocol_name(self: &Self) -> (&'static str, &'static str, &'static str);
@@ -47,10 +48,11 @@ pub trait Dissector {
     fn set_tree_indices(self: &mut Self, _ett_indices: Vec<epan::proto::ETTIndex>) {}
 
     /// This function is called when using a heuristic dissection.
-    fn heuristic_dissect(self: &mut Self, _proto: &mut epan::ProtoTree, _tvb: &mut epan::TVB) -> bool {
+    fn heuristic_dissect(self: &Self, _proto: &mut epan::ProtoTree, _tvb: &mut epan::TVB) -> bool {
         false
     }
 }
+
 impl Debug for dyn Dissector {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "Dissector{{{}}}", self.get_protocol_name().0)
@@ -112,4 +114,13 @@ pub enum Registration {
         /// Does the heuristic dissector start enabled?
         enabled: bool,
     },
+}
+
+use std::rc::Rc;
+/// Pass the dissector for setup, this is the main entry function that registers the plugin.
+///
+/// Currently, the one dissector that's handed in is stored in a global static. During setup we use it as a mutable
+/// after setup it will be immutable and multiple thread from wireshark may interact with it.
+pub fn setup<T: 'static + Dissector>(d: Rc<T>) {
+    plugin::setup(d);
 }

@@ -2,7 +2,7 @@ extern crate wireshark_dissector_rs;
 
 use wireshark_dissector_rs::dissector;
 use wireshark_dissector_rs::epan;
-use wireshark_dissector_rs::plugin;
+//~ use wireshark_dissector_rs::plugin;
 
 // Lift these to make it less verbose.
 type FieldType = dissector::FieldType;
@@ -93,25 +93,25 @@ impl dissector::Dissector for MyDissector {
         self.field_mapping = hfindices;
     }
 
-    fn dissect(self: &mut Self, proto: &mut epan::ProtoTree, tvb: &mut epan::TVB) -> usize {
+    fn dissect(self: &Self, proto: &mut epan::ProtoTree, tvb: &mut epan::TVB) -> usize {
         {
             proto.add_item(self.get_id(&MyDissector::FIELD2), tvb, 0, 1, Encoding::BIG_ENDIAN);
         }
-        let mut offset: usize = 0;
-        for field in proto.all_finfos() {
-            match field.hfinfo() {
-                Ok(v) => {
-                    if v.abbrev() == "usb.data_fragment" {
-                        offset = field.start() as usize;
-                    }
-                }
-                Err(e) => println!("{}", e),
-            };
-        }
-        if offset == 0 {
-            return tvb.reported_length(); // Nothing to do here, move along.
-        }
-
+        //~ let mut offset: usize = 0;
+        //~ for field in proto.all_finfos() {
+            //~ match field.hfinfo() {
+                //~ Ok(v) => {
+                    //~ if v.abbrev() == "usb.data_fragment" {
+                        //~ offset = field.start() as usize;
+                    //~ }
+                //~ }
+                //~ Err(e) => println!("{}", e),
+            //~ };
+        //~ }
+        //~ if offset == 0 {
+            //~ return tvb.reported_length(); // Nothing to do here, move along.
+        //~ }
+        let mut offset = 0;
         let mut item_entry = proto.add_item(self.get_id(&MyDissector::FIELD2), tvb, offset, 1, Encoding::BIG_ENDIAN);
         let mut fold_thing = item_entry.add_subtree(self.get_tree_id(TreeIdentifier::Main));
 
@@ -144,13 +144,13 @@ impl dissector::Dissector for MyDissector {
     fn get_registration(self: &Self) -> Vec<dissector::Registration> {
         // usb makes a table;     product_to_dissector = register_dissector_table("usb.product",   "USB product",  proto_usb, FT_UINT32, BASE_HEX);
         return vec![
-            dissector::Registration::Post,
+            //~ dissector::Registration::Post,
             //~ dissector::Registration::DecodeAs { abbrev: "tcp.port" },
             //~ dissector::Registration::DecodeAs { abbrev: "usb.product" },
-            //~ dissector::Registration::UInt {
-            //~ abbrev: "usb.product",
-            //~ pattern: 0x15320226,
-            //~ },
+            dissector::Registration::UInt {
+                abbrev: "usb.product",
+                pattern: 0x15320226,
+            },
             //~ dissector::Registration::UInt {
             //~ abbrev: "udp.dstport",
             //~ pattern: 8995,
@@ -180,10 +180,11 @@ impl dissector::Dissector for MyDissector {
 }
 
 // This function is the main entry point for the plugin. It's the only symbol called automatically.
+use std::rc::Rc;
 #[no_mangle]
 pub fn plugin_register() {
-    let z = Box::new(MyDissector::new());
-    plugin::setup(z);
+    let z = Rc::new(MyDissector::new());
+    dissector::setup(z);
 }
 
 // And we need these public symbols to tell wireshark we are the right version.
