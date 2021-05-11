@@ -2,13 +2,6 @@ use crate::dissector;
 use crate::epan;
 use crate::util;
 
-/*
-    Known issues:
-    Registering as a subdissector of usb is problematic, usb sets up a TAP, which means every field we add in our
-    dissection method results in the tap being triggered and somehow that calls our dissector again while the dissection
-    pointer isn't available in the static global storage.
-*/
-
 use crate::dissector::Dissector;
 use crate::dissector::PacketField;
 
@@ -57,7 +50,7 @@ extern "C" fn dissect_protocol_function(
     let mut tvb: epan::TVB = unsafe { epan::TVB::from_ptr(tvb) };
 
     // A temporary to hold the,  we retrieve from a mutable static, so it's unsafe.
-    let dissector_tmp = unsafe {&DISSECTOR_PTR.as_ref().unwrap()};
+    let dissector_tmp = unsafe { &DISSECTOR_PTR.as_ref().unwrap() };
 
     // Call the dissector.
     let used_bytes = dissector_tmp.dissect(&mut proto, &mut tvb);
@@ -74,7 +67,7 @@ extern "C" fn heuristic_dissector_function(
     _data: *mut libc::c_void,
 ) -> bool {
     // A temporary to hold the,  we retrieve from a mutable static, so it's unsafe.
-    let dissector_tmp = unsafe {&DISSECTOR_PTR.as_ref().unwrap()};
+    let dissector_tmp = unsafe { &DISSECTOR_PTR.as_ref().unwrap() };
 
     // Make our objects and invoke the heuristic dissector method.
     let mut proto: epan::ProtoTree = unsafe { epan::ProtoTree::from_ptr(tree) };
@@ -92,68 +85,66 @@ extern "C" fn proto_register_protoinfo() {
         HF_ENTRIES = Some(Vec::new());
     }
 
+    let dissector_tmp = unsafe { Rc::<dyn Dissector + 'static>::get_mut(DISSECTOR_PTR.as_mut().unwrap()).unwrap() };
+
+    // Make a vector to hold the HFIndex entries.
+    let mut field_ids: Vec<epan::proto::HFIndex> = Vec::new();
+
+    // Obtain the fields we are about to register.
+    let fields_input = dissector_tmp.get_fields();
     unsafe {
-        let dissector_tmp = Rc::<dyn Dissector +'static>::get_mut(DISSECTOR_PTR.as_mut().unwrap()).unwrap();
+        // Register our protocol names and abbreviation.
+        let (full_name, short_name, filter_name) = dissector_tmp.get_protocol_name();
+        PROTO_ID = epan::proto::proto_register_protocol(
+            util::perm_string_ptr(full_name),
+            util::perm_string_ptr(short_name),
+            util::perm_string_ptr(filter_name),
+        );
 
-        // Make a vector to hold the HFIndex entries.
-        let mut field_ids: Vec<epan::proto::HFIndex> = Vec::new();
+        // ok, here we get to make our header fields array, and then we can pass that to wireshark.
+        let hf_fields = &mut HF_ENTRIES.as_mut().unwrap();
 
-        // Obtain the fields we are about to register.
-        let fields_input = dissector_tmp.get_fields();
+        // Now, build the struct we're going to pass to wireshark.
+        field_ids.resize(fields_input.len(), epan::proto::HFIndex(-1));
+        for i in 0..fields_input.len() {
+            hf_fields.push(epan::proto::hf_register_info {
+                p_id: &mut field_ids[i],
+                hfinfo: fields_input[i].into(),
+            });
+        }
+
+        // pass our struct to wireshark.
+        let rawptr = &mut hf_fields[0] as *mut epan::proto::hf_register_info;
+        epan::proto::proto_register_field_array(PROTO_ID, rawptr, hf_fields.len() as i32);
+    }
+
+    // And, then we assembly the return struct.
+    let mut hfindices: Vec<(PacketField, epan::proto::HFIndex)> = Vec::new();
+    for i in 0..field_ids.len() {
+        hfindices.push((fields_input[i], field_ids[i]));
+    }
+
+    // Pass the now usable indices back to the dissector.
+    dissector_tmp.set_field_indices(hfindices);
+
+    // And, then lastly, we create the tree indices.
+    let desired_count = dissector_tmp.get_tree_count();
+    if desired_count != 0 {
+        let mut ett_indices: Vec<epan::proto::ETTIndex> = Vec::new();
+        ett_indices.resize(desired_count, epan::proto::ETTIndex(-1));
+        let mut ett_index_vector: Vec<*mut epan::proto::ETTIndex> = Vec::new();
+        for i in 0..desired_count {
+            ett_index_vector.push(&mut ett_indices[i] as *mut epan::proto::ETTIndex);
+        }
         unsafe {
-            // Register our protocol names and abbreviation.
-            let (full_name, short_name, filter_name) = dissector_tmp.get_protocol_name();
-            PROTO_ID = epan::proto::proto_register_protocol(
-                util::perm_string_ptr(full_name),
-                util::perm_string_ptr(short_name),
-                util::perm_string_ptr(filter_name),
+            // now, we can pass this vector to register the ETTIndices we want.
+            epan::proto::proto_register_subtree_array(
+                &mut ett_index_vector[0] as *mut *mut epan::proto::ETTIndex,
+                desired_count as i32,
             );
-
-            // ok, here we get to make our header fields array, and then we can pass that to wireshark.
-            let hf_fields = &mut HF_ENTRIES.as_mut().unwrap();
-
-            // Now, build the struct we're going to pass to wireshark.
-            field_ids.resize(fields_input.len(), epan::proto::HFIndex(-1));
-            for i in 0..fields_input.len() {
-                hf_fields.push(epan::proto::hf_register_info {
-                    p_id: &mut field_ids[i],
-                    hfinfo: fields_input[i].into(),
-                });
-            }
-
-            // pass our struct to wireshark.
-            let rawptr = &mut hf_fields[0] as *mut epan::proto::hf_register_info;
-            epan::proto::proto_register_field_array(PROTO_ID, rawptr, hf_fields.len() as i32);
         }
 
-        // And, then we assembly the return struct.
-        let mut hfindices: Vec<(PacketField, epan::proto::HFIndex)> = Vec::new();
-        for i in 0..field_ids.len() {
-            hfindices.push((fields_input[i], field_ids[i]));
-        }
-
-        // Pass the now usable indices back to the dissector.
-        dissector_tmp.set_field_indices(hfindices);
-
-        // And, then lastly, we create the tree indices.
-        let desired_count = dissector_tmp.get_tree_count();
-        if desired_count != 0 {
-            let mut ett_indices: Vec<epan::proto::ETTIndex> = Vec::new();
-            ett_indices.resize(desired_count, epan::proto::ETTIndex(-1));
-            let mut ett_index_vector: Vec<*mut epan::proto::ETTIndex> = Vec::new();
-            for i in 0..desired_count {
-                ett_index_vector.push(&mut ett_indices[i] as *mut epan::proto::ETTIndex);
-            }
-            unsafe {
-                // now, we can pass this vector to register the ETTIndices we want.
-                epan::proto::proto_register_subtree_array(
-                    &mut ett_index_vector[0] as *mut *mut epan::proto::ETTIndex,
-                    desired_count as i32,
-                );
-            }
-
-            dissector_tmp.set_tree_indices(ett_indices);
-        }
+        dissector_tmp.set_tree_indices(ett_indices);
     }
 }
 
@@ -164,7 +155,7 @@ extern "C" fn proto_register_handoff() {
     // The second step is to register the dissector handle so that traffic associated with the protocol calls the dissector.
 
     unsafe {
-        let dissector_tmp = unsafe {&DISSECTOR_PTR.as_ref().unwrap()};
+        let dissector_tmp = &DISSECTOR_PTR.as_ref().unwrap();
 
         let dissector_handle = epan::packet::create_dissector_handle(Some(dissect_protocol_function), PROTO_ID);
 

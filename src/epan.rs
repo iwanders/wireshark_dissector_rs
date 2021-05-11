@@ -109,6 +109,7 @@ impl FValue<'_> {
     {
         unsafe
         {
+            // somehow causes a missing symbol?
             ftypes::fvalue_length(self.value as *const ftypes::fvalue_t) as usize
         }
     }
@@ -440,21 +441,18 @@ impl TVB {
     }
 
     /// Retrieve a block of memory from the buffer.
-    /// 
+    ///
     /// Does not suffer from possible
     /// expense of tvb_get_ptr(), since this routine is smart enough
     /// to copy data in chunks if the request range actually exists in
     /// different "real" tvbuffs.
-    pub fn get_mem(self: &mut Self, offset: usize, length: usize) -> Vec<u8>
-    {
-        let mut v : Vec<u8> = vec![0; length];
-        unsafe
-        {
+    pub fn get_mem(self: &mut Self, offset: usize, length: usize) -> Vec<u8> {
+        let mut v: Vec<u8> = vec![0; length];
+        unsafe {
             tvbuff::tvb_memcpy(self.tvb, v.as_mut_ptr() as *mut libc::c_void, offset as i32, length);
         }
         return v;
     }
-
 }
 
 impl From<&mut TVB> for *mut tvbuff::tvbuff_t {

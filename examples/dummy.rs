@@ -2,7 +2,6 @@ extern crate wireshark_dissector_rs;
 
 use wireshark_dissector_rs::dissector;
 use wireshark_dissector_rs::epan;
-//~ use wireshark_dissector_rs::plugin;
 
 // Lift these to make it less verbose.
 type FieldType = dissector::FieldType;
@@ -94,27 +93,11 @@ impl dissector::Dissector for MyDissector {
     }
 
     fn dissect(self: &Self, proto: &mut epan::ProtoTree, tvb: &mut epan::TVB) -> usize {
-        {
-            proto.add_item(self.get_id(&MyDissector::FIELD2), tvb, 0, 1, Encoding::BIG_ENDIAN);
-        }
-        //~ let mut offset: usize = 0;
-        //~ for field in proto.all_finfos() {
-            //~ match field.hfinfo() {
-                //~ Ok(v) => {
-                    //~ if v.abbrev() == "usb.data_fragment" {
-                        //~ offset = field.start() as usize;
-                    //~ }
-                //~ }
-                //~ Err(e) => println!("{}", e),
-            //~ };
-        //~ }
-        //~ if offset == 0 {
-            //~ return tvb.reported_length(); // Nothing to do here, move along.
-        //~ }
-        let mut offset = 0;
+        let offset = 0;
         let mut item_entry = proto.add_item(self.get_id(&MyDissector::FIELD2), tvb, offset, 1, Encoding::BIG_ENDIAN);
         let mut fold_thing = item_entry.add_subtree(self.get_tree_id(TreeIdentifier::Main));
 
+        proto.add_item(self.get_id(&MyDissector::FIELD2), tvb, 0, 1, Encoding::BIG_ENDIAN);
         fold_thing.add_item(
             self.get_id(&MyDissector::FIELD3),
             tvb,
