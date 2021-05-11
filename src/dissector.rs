@@ -28,7 +28,10 @@ pub trait Dissector {
 
     /// Called when there is something to dissect, so probably called for every packet. This function must return how
     /// many bytes it used from the tvb.
-    fn dissect(self: &Self, proto: &mut epan::ProtoTree, tvb: &mut epan::TVB) -> usize;
+    fn dissect(self: &Self, proto: &mut epan::ProtoTree, tvb: &mut epan::TVB) -> usize
+    {
+        0
+    }
 
     /// Full name, short_name, filter_name
     fn get_protocol_name(self: &Self) -> (&'static str, &'static str, &'static str);

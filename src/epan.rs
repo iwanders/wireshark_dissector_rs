@@ -411,7 +411,7 @@ impl TVB {
     /// security vulnerability or otherwise crash Wireshark. Then consider
     /// that you can probably find a function elsewhere in this file that
     /// does exactly what you want in a much more safe and robust manner.
-    pub fn remaining_bytes(self: &mut Self, offset: usize) -> &[u8] {
+    pub fn tvb_get_ptr(self: &mut Self, offset: usize) -> &[u8] {
         unsafe {
             let mut available_length = tvbuff::tvb_reported_length_remaining(self.tvb, offset as i32);
             if available_length < 0 {
@@ -438,6 +438,23 @@ impl TVB {
             return tvbuff::tvb_reported_length_remaining(self.tvb, offset as i32);
         }
     }
+
+    /// Retrieve a block of memory from the buffer.
+    /// 
+    /// Does not suffer from possible
+    /// expense of tvb_get_ptr(), since this routine is smart enough
+    /// to copy data in chunks if the request range actually exists in
+    /// different "real" tvbuffs.
+    pub fn get_mem(self: &mut Self, offset: usize, length: usize) -> Vec<u8>
+    {
+        let mut v : Vec<u8> = vec![0; length];
+        unsafe
+        {
+            tvbuff::tvb_memcpy(self.tvb, v.as_mut_ptr() as *mut libc::c_void, offset as i32, length);
+        }
+        return v;
+    }
+
 }
 
 impl From<&mut TVB> for *mut tvbuff::tvbuff_t {
