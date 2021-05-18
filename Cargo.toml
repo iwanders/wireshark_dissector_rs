@@ -15,8 +15,6 @@ name = "wireshark_dissector_rs"
 path = "src/lib.rs"
 crate-type = ["lib"]
 
-# if something is a cdylib, you can't link it as a rust crate.
-
 [[example]]
 name = "dummy"
 crate-type = ["cdylib"]
