@@ -1,3 +1,6 @@
+// Copyright 2021-2021, Ivor Wanders and the wireshark_dissector_rs contributors
+// SPDX-License-Identifier: GPL-2.0-or-later
+
 // https://www.wireshark.org/docs/wsdg_html/#ChDissectDetails
 // /usr/include/wireshark/epan
 
@@ -20,8 +23,10 @@
 // This seems useful?
 // https://stackoverflow.com/a/55323693
 
+
 #![allow(non_camel_case_types)]
 #![allow(dead_code)]
+extern crate libc;
 
 // These files follow the same structure as the header files.
 pub mod ftypes;

@@ -1,11 +1,13 @@
 [package]
 name = "wireshark_dissector_rs"
 version = "0.1.0"
-authors = ["Ivor Wanders <ivor@iwanders.net>"]
+authors = ["Ivor Wanders"]
 edition = "2018"
-links = "wireshark"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+links = "wireshark,glib-2.0"
+license = "GPL-2.0-or-later" # Wireshark is GPL, this is clearly a derivative work and links against it.
+description = "This crate attempts to provide a safe way for writing wireshark dissectors in Rust."
+categories = ["api-bindings"]
+keywords = ["wireshark"]
 
 [dependencies]
 libc = "0.2.93"
@@ -17,4 +19,4 @@ crate-type = ["lib"]
 
 [[example]]
 name = "dummy"
-crate-type = ["cdylib"]
+crate-type = ["cdylib"]  # The actual plugins need to be linked as c libraries.

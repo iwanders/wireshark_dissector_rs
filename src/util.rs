@@ -1,3 +1,6 @@
+// Copyright 2021-2021, Ivor Wanders and the wireshark_dissector_rs contributors
+// SPDX-License-Identifier: GPL-2.0-or-later
+
 /*
 Wireshark often expects const char* strings to exist indefinitely... So here we build a container for those strings.
 Such that if we require the same string in various places, we don't end up leaking that string over and over.

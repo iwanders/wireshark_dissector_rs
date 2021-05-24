@@ -1,5 +1,9 @@
+// Copyright 2021-2021, Ivor Wanders and the wireshark_dissector_rs contributors
+// SPDX-License-Identifier: GPL-2.0-or-later
+
 use crate::epan;
 use crate::plugin;
+extern crate libc;
 use core::fmt::Debug;
 
 /// The trait the dissector must adhere to.

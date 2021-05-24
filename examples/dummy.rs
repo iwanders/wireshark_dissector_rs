@@ -1,3 +1,6 @@
+// Copyright 2021-2021, Ivor Wanders and the wireshark_dissector_rs contributors
+// SPDX-License-Identifier: GPL-2.0-or-later
+
 extern crate wireshark_dissector_rs;
 
 use wireshark_dissector_rs::dissector;

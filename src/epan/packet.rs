@@ -1,3 +1,6 @@
+// Copyright 2021-2021, Ivor Wanders and the wireshark_dissector_rs contributors
+// SPDX-License-Identifier: GPL-2.0-or-later
+
 use super::packet_info::packet_info;
 use super::proto::proto_tree;
 use super::proto::protocol_t;
