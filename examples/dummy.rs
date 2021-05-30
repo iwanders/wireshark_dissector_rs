@@ -23,45 +23,42 @@ enum TreeIdentifier {
 struct MyDissector {
     field_mapping: Vec<(dissector::PacketField, epan::proto::HFIndex)>,
     tree_indices: Vec<epan::proto::ETTIndex>,
+
+    fields_made_at_runtime: Vec<dissector::PacketField>,
 }
 
 impl MyDissector {
     /// PacketField for the main root element of our dissection.
     const FIELD1: dissector::PacketField = dissector::PacketField {
-        name: "protoname",
-        abbrev: "proto.main",
+        name: dissector::StringContainer::StaticStr("protoname"),
+        abbrev: dissector::StringContainer::StaticStr("proto.main"),
         field_type: FieldType::PROTOCOL,
         display: FieldDisplay::BASE_NONE,
     };
 
     /// PacketField for a first byte, represented as hexadecimal.
     const FIELD2: dissector::PacketField = dissector::PacketField {
-        name: "first byte",
-        abbrev: "proto.byte0",
+        name: dissector::StringContainer::StaticStr("first byte"),
+        abbrev: dissector::StringContainer::StaticStr("proto.byte0"),
         field_type: FieldType::UINT8,
         display: FieldDisplay::BASE_HEX,
     };
 
-    /// And the second two bytes.
-    const FIELD3: dissector::PacketField = dissector::PacketField {
-        name: "second byte",
-        abbrev: "proto.byte1",
-        field_type: FieldType::UINT16,
-        display: FieldDisplay::BASE_HEX,
-    };
+    /// The above is pretty verbose with that string container... so we also support:
+    const FIELD3: dissector::PacketField = dissector::PacketField::fixed("second byte", "proto.byte1", FieldType::UINT16, FieldDisplay::BASE_HEX);
 
     /// Field to represent a signed 32 bit integer.
     const FIELD32: dissector::PacketField = dissector::PacketField {
-        name: "uint32 byte",
-        abbrev: "proto.byte3",
+        name: dissector::StringContainer::StaticStr("uint32 byte"),
+        abbrev: dissector::StringContainer::StaticStr("proto.byte3"),
         field_type: FieldType::INT32,
         display: FieldDisplay::BASE_DEC,
     };
 
     /// Field to represent an unsigned 64 bit integer as hexadecimal.
     const FIELD64: dissector::PacketField = dissector::PacketField {
-        name: "uint64 byte",
-        abbrev: "proto.byte4",
+        name: dissector::StringContainer::StaticStr("uint64 byte"),
+        abbrev: dissector::StringContainer::StaticStr("proto.byte4"),
         field_type: FieldType::UINT64,
         display: FieldDisplay::BASE_HEX,
     };
@@ -90,9 +87,19 @@ impl MyDissector {
     }
 
     fn new() -> MyDissector {
+        // Look, it's using runtime Strings. we can still only do the creation of the fields once... but it allows
+        // composing things.
+        let runtime_defined_field = dissector::PacketField {
+            name: dissector::StringContainer::String(String::from("runtime.field")),
+            abbrev: dissector::StringContainer::String(String::from("proto.runtime.field1")),
+            field_type: FieldType::UINT16,
+            display: FieldDisplay::BASE_HEX,
+        };
+
         MyDissector {
             field_mapping: Vec::new(),
             tree_indices: Vec::new(),
+            fields_made_at_runtime: vec!(runtime_defined_field),
         }
     }
 }
@@ -106,6 +113,11 @@ impl dissector::Dissector for MyDissector {
         f.push(MyDissector::FIELD3);
         f.push(MyDissector::FIELD32);
         f.push(MyDissector::FIELD64);
+
+        for i in 0..self.fields_made_at_runtime.len()
+        {
+            f.push(self.fields_made_at_runtime[i].clone());
+        }
         return f;
     }
 
@@ -152,6 +164,15 @@ impl dissector::Dissector for MyDissector {
             tvb,
             offset + 1,
             4,
+            Encoding::BIG_ENDIAN,
+        );
+
+        // Test a runtime field, just to ensure the dynamic strings don't... segfault.
+        fold_thing.add_item(
+            self.get_id(&self.fields_made_at_runtime[0]),
+            tvb,
+            offset + 1,
+            2,
             Encoding::BIG_ENDIAN,
         );
 

@@ -8,11 +8,20 @@ use crate::util;
 use crate::dissector::Dissector;
 use crate::dissector::PacketField;
 
+fn string_container_to_perm(v: &dissector::StringContainer) -> *const libc::c_char 
+{
+    match v
+    {
+        dissector::StringContainer::StaticStr(s) => util::perm_string_ptr(&s),
+        dissector::StringContainer::String(s) =>  util::perm_string_ptr(&s)
+    }
+}
+
 impl From<PacketField> for epan::proto::header_field_info {
     fn from(field: PacketField) -> Self {
         epan::proto::header_field_info {
-            name: util::perm_string_ptr(field.name),
-            abbrev: util::perm_string_ptr(field.abbrev),
+            name: string_container_to_perm(&field.name),
+            abbrev: string_container_to_perm(&field.abbrev),
             type_: field.field_type.into(),
             display: field.display.into(),
             ..Default::default()
@@ -112,7 +121,7 @@ extern "C" fn proto_register_protoinfo() {
         for i in 0..fields_input.len() {
             hf_fields.push(epan::proto::hf_register_info {
                 p_id: &mut field_ids[i],
-                hfinfo: fields_input[i].into(),
+                hfinfo: fields_input[i].clone().into(),
             });
         }
 
@@ -124,7 +133,7 @@ extern "C" fn proto_register_protoinfo() {
     // And, then we assembly the return struct.
     let mut hfindices: Vec<(PacketField, epan::proto::HFIndex)> = Vec::new();
     for i in 0..field_ids.len() {
-        hfindices.push((fields_input[i], field_ids[i]));
+        hfindices.push((fields_input[i].clone(), field_ids[i]));
     }
 
     // Pass the now usable indices back to the dissector.

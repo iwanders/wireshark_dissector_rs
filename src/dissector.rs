@@ -63,18 +63,40 @@ pub trait Dissector {
 pub type FieldType = epan::ftypes::ftenum;
 pub type FieldDisplay = epan::proto::FieldDisplay;
 
+/// A type to allow both dynamic string creation as well as static strings, such that PacketField
+/// can be used for CONST class members, as well as for dynamically generated names.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum StringContainer
+{
+    StaticStr(&'static str),
+    String(String),
+}
+
 /// Specification for a field that can be displayed, simpler form of field_info on the C side.
 // todo: Should we consolidate this (somehow?!) with epan::HeaderFieldInfo's wrapper for inspection?
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 pub struct PacketField {
     /// This is the name as displayed for this field. (`Field Name`).
-    pub name: &'static str,
+    pub name: StringContainer,
     /// This is the abbreviation / internal name of the field (`proto.field_name`).
-    pub abbrev: &'static str,
+    pub abbrev: StringContainer,
     /// This denotes the type of field.
     pub field_type: FieldType,
     /// This specifies how the field should be represented.
     pub display: FieldDisplay,
+}
+
+impl PacketField
+{
+    pub const fn fixed(name: &'static str, abbrev: &'static str, field_type: FieldType, display: FieldDisplay) -> Self
+    {
+        PacketField {
+            name: StringContainer::StaticStr(name),
+            abbrev: StringContainer::StaticStr(abbrev),
+            field_type: field_type,
+            display: display,
+        }
+    }
 }
 
 // https://rust-lang.github.io/rfcs/0418-struct-variants.html
