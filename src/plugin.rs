@@ -8,12 +8,10 @@ use crate::util;
 use crate::dissector::Dissector;
 use crate::dissector::PacketField;
 
-fn string_container_to_perm(v: &dissector::StringContainer) -> *const libc::c_char 
-{
-    match v
-    {
+fn string_container_to_perm(v: &dissector::StringContainer) -> *const libc::c_char {
+    match v {
         dissector::StringContainer::StaticStr(s) => util::perm_string_ptr(&s),
-        dissector::StringContainer::String(s) =>  util::perm_string_ptr(&s)
+        dissector::StringContainer::String(s) => util::perm_string_ptr(&s),
     }
 }
 

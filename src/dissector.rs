@@ -66,10 +66,19 @@ pub type FieldDisplay = epan::proto::FieldDisplay;
 /// A type to allow both dynamic string creation as well as static strings, such that PacketField
 /// can be used for CONST class members, as well as for dynamically generated names.
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub enum StringContainer
-{
+pub enum StringContainer {
     StaticStr(&'static str),
     String(String),
+}
+
+// Implement comparison operator against string slice.
+impl std::cmp::PartialEq<&str> for StringContainer {
+    fn eq(&self, other: &&str) -> bool {
+        match self {
+            StringContainer::String(s) => &s.as_str() == other,
+            StringContainer::StaticStr(s) => s == other,
+        }
+    }
 }
 
 /// Specification for a field that can be displayed, simpler form of field_info on the C side.
@@ -86,10 +95,8 @@ pub struct PacketField {
     pub display: FieldDisplay,
 }
 
-impl PacketField
-{
-    pub const fn fixed(name: &'static str, abbrev: &'static str, field_type: FieldType, display: FieldDisplay) -> Self
-    {
+impl PacketField {
+    pub const fn fixed(name: &'static str, abbrev: &'static str, field_type: FieldType, display: FieldDisplay) -> Self {
         PacketField {
             name: StringContainer::StaticStr(name),
             abbrev: StringContainer::StaticStr(abbrev),

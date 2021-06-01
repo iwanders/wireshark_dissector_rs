@@ -45,7 +45,8 @@ impl MyDissector {
     };
 
     /// The above is pretty verbose with that string container... so we also support:
-    const FIELD3: dissector::PacketField = dissector::PacketField::fixed("second byte", "proto.byte1", FieldType::UINT16, FieldDisplay::BASE_HEX);
+    const FIELD3: dissector::PacketField =
+        dissector::PacketField::fixed("second byte", "proto.byte1", FieldType::UINT16, FieldDisplay::BASE_HEX);
 
     /// Field to represent a signed 32 bit integer.
     const FIELD32: dissector::PacketField = dissector::PacketField {
@@ -99,7 +100,7 @@ impl MyDissector {
         MyDissector {
             field_mapping: Vec::new(),
             tree_indices: Vec::new(),
-            fields_made_at_runtime: vec!(runtime_defined_field),
+            fields_made_at_runtime: vec![runtime_defined_field],
         }
     }
 }
@@ -114,8 +115,7 @@ impl dissector::Dissector for MyDissector {
         f.push(MyDissector::FIELD32);
         f.push(MyDissector::FIELD64);
 
-        for i in 0..self.fields_made_at_runtime.len()
-        {
+        for i in 0..self.fields_made_at_runtime.len() {
             f.push(self.fields_made_at_runtime[i].clone());
         }
         return f;

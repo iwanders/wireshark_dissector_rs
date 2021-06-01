@@ -265,6 +265,7 @@ impl Debug for FieldInfo {
 }
 
 /// Struct to represent a protocol tree, serves as a wrapper around the `proto_tree_*` C functions.
+#[derive(Copy, Clone)]
 pub struct ProtoTree {
     tree: *mut proto::proto_tree,
 }
@@ -350,6 +351,7 @@ impl ProtoTree {
 use std::ffi::CString;
 
 /// Struct to represent a protocol item, serves as a wrapper around the `proto_item_*` C functions.
+#[derive(Copy, Clone)]
 pub struct ProtoItem {
     item: *mut proto::proto_item,
 }
@@ -393,6 +395,7 @@ impl ProtoItem {
     }
 }
 /// Struct to represent a Testy Virtual Buffer, serves as a wrapper around the `tvb_*` C functions.
+#[derive(Copy, Clone)]
 pub struct TVB {
     tvb: *mut tvbuff::tvbuff_t,
 }
