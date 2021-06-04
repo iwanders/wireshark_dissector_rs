@@ -11,6 +11,13 @@ takes place. This is obviously unchanged, and because of that it still makes dis
 [dummy example](/../master/examples/dummy.rs) dissector. For the full documentation checkout this repo and run
 `cargo doc`, start with the `Dissector` trait.
 
+Usage
+-----
+Use `cargo doc` to build the documentation, the public interface is reasonably well documented. For
+an example dissector take a look at the example directory. That example is pretty boring, but it
+should serve as a good starting point to make your own dissector.
+
+
 License
 ------
 It's a derivative work of Wireshark and links against it, [therefore](https://wiki.wireshark.org/Lua#Beware_the_GPL) it

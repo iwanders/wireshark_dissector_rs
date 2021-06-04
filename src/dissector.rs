@@ -71,10 +71,8 @@ pub enum StringContainer {
     String(String),
 }
 
-impl StringContainer
-{
-    pub fn as_str(&self) -> &str
-    {
+impl StringContainer {
+    pub fn as_str(&self) -> &str {
         match self {
             StringContainer::String(s) => &s.as_str(),
             StringContainer::StaticStr(s) => s,
