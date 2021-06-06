@@ -17,6 +17,10 @@ Use `cargo doc` to build the documentation, the public interface is reasonably w
 an example dissector take a look at the example directory. That example is pretty boring, but it
 should serve as a good starting point to make your own dissector.
 
+This crate is used in my [huntsman](https://github.com/iwanders/huntsman) project, where this
+crate is used to perform a dissection by traversing over a tree of field definitions. It provides a
+more elaborate example and shows how one could create a dissector without manually specifying all
+the fields to be dissected.
 
 License
 ------
