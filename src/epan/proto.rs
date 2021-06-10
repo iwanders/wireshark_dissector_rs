@@ -302,6 +302,15 @@ extern "C" {
         retval: *mut u32,
     ) -> *mut proto_item;
 
+    pub fn proto_tree_add_bits_item(
+        tree: *mut proto_tree,
+        hfindex: HFIndex,
+        tvb: *mut tvbuff_t,
+        bit_offset: i32,
+        no_of_bits: i32,
+        encoding: Encoding,
+    ) -> *mut proto_item;
+
     // Proto item functions below
     pub fn proto_item_set_text(ti: *mut proto_item, text: *const libc::c_char);
     pub fn proto_item_append_text(ti: *mut proto_item, text: *const libc::c_char);
