@@ -63,6 +63,9 @@ impl MyDissector {
         field_type: FieldType::UINT64,
         display: FieldDisplay::BASE_HEX,
     };
+
+    const BITFIELD: dissector::PacketField =
+        dissector::PacketField::fixed("A bitfield", "proto.bitfield1", FieldType::UINT16, FieldDisplay::BASE_DEC);
 }
 
 impl MyDissector {
@@ -114,6 +117,7 @@ impl dissector::Dissector for MyDissector {
         f.push(MyDissector::FIELD3);
         f.push(MyDissector::FIELD32);
         f.push(MyDissector::FIELD64);
+        f.push(MyDissector::BITFIELD);
 
         for i in 0..self.fields_made_at_runtime.len() {
             f.push(self.fields_made_at_runtime[i].clone());
@@ -157,6 +161,14 @@ impl dissector::Dissector for MyDissector {
             Encoding::BIG_ENDIAN,
         );
         offset += 2;
+
+        // Add the bitfield
+        fold_thing.add_bits_item(self.get_id(&MyDissector::BITFIELD),
+            tvb,
+            (offset + 2)* 8 + 3,  // In bits from the start of the buffer
+            4,
+            Encoding::BIG_ENDIAN,
+        );
 
         // We can use the _ret_something flavour to also return a value;
         let (mut item, retval) = fold_thing.add_item_ret_int(

@@ -293,6 +293,30 @@ impl ProtoTree {
         }
     }
 
+    /// Add bits to a proto_tree, using the text label registered to that item. The item is
+    /// extracted from the tvbuff handed to it.
+    pub fn add_bits_item(
+        self: &mut Self,
+        hfindex: proto::HFIndex,
+        tvb: &mut TVB,
+        bit_offset: usize,
+        no_of_bits: usize,
+        encoding: proto::Encoding,
+    ) -> ProtoItem {
+        unsafe {
+            ProtoItem {
+                item: proto::proto_tree_add_bits_item(
+                    self.tree,
+                    hfindex,
+                    tvb.into(),
+                    bit_offset as i32,
+                    no_of_bits as i32,
+                    encoding,
+                ),
+            }
+        }
+    }
+
     /// Add an integer data item to a proto_tree, using the text label registered to that item.
     /// The item is extracted from the tvbuff handed to it, and the retrieved
     /// value is also returned to so the caller gets it back for other uses.
