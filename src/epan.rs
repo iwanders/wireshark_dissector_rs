@@ -293,6 +293,8 @@ impl ProtoTree {
         }
     }
 
+    /// Add bits to a proto_tree, using the text label registered to that item. The item is
+    /// extracted from the tvbuff handed to it.
     pub fn add_bits_item(
         self: &mut Self,
         hfindex: proto::HFIndex,
