@@ -64,8 +64,12 @@ impl MyDissector {
         display: FieldDisplay::BASE_HEX,
     };
 
-    const BITFIELD: dissector::PacketField =
-        dissector::PacketField::fixed("A bitfield", "proto.bitfield1", FieldType::UINT16, FieldDisplay::BASE_DEC);
+    const BITFIELD: dissector::PacketField = dissector::PacketField::fixed(
+        "A bitfield",
+        "proto.bitfield1",
+        FieldType::UINT16,
+        FieldDisplay::BASE_DEC,
+    );
 }
 
 impl MyDissector {
@@ -163,9 +167,10 @@ impl dissector::Dissector for MyDissector {
         offset += 2;
 
         // Add the bitfield
-        fold_thing.add_bits_item(self.get_id(&MyDissector::BITFIELD),
+        fold_thing.add_bits_item(
+            self.get_id(&MyDissector::BITFIELD),
             tvb,
-            (offset + 2)* 8 + 3,  // In bits from the start of the buffer
+            (offset + 2) * 8 + 3, // In bits from the start of the buffer
             4,
             Encoding::BIG_ENDIAN,
         );
