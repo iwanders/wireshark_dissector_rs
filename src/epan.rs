@@ -281,7 +281,7 @@ impl ProtoTree {
     pub fn add_item(
         self: &mut Self,
         hfindex: proto::HFIndex,
-        tvb: &mut TVB,
+        tvb: &TVB,
         start: usize,
         length: usize,
         encoding: proto::Encoding,
@@ -298,7 +298,7 @@ impl ProtoTree {
     pub fn add_bits_item(
         self: &mut Self,
         hfindex: proto::HFIndex,
-        tvb: &mut TVB,
+        tvb: &TVB,
         bit_offset: usize,
         no_of_bits: usize,
         encoding: proto::Encoding,
@@ -323,7 +323,7 @@ impl ProtoTree {
     pub fn add_item_ret_int(
         self: &mut Self,
         hfindex: proto::HFIndex,
-        tvb: &mut TVB,
+        tvb: &TVB,
         start: usize,
         length: usize,
         encoding: proto::Encoding,
@@ -443,7 +443,7 @@ impl TVB {
     /// security vulnerability or otherwise crash Wireshark. Then consider
     /// that you can probably find a function elsewhere in this file that
     /// does exactly what you want in a much more safe and robust manner.
-    pub fn tvb_get_ptr(self: &mut Self, offset: usize) -> &[u8] {
+    pub fn tvb_get_ptr(&self, offset: usize) -> &[u8] {
         unsafe {
             let mut available_length = tvbuff::tvb_reported_length_remaining(self.tvb, offset as i32);
             if available_length < 0 {
@@ -455,7 +455,7 @@ impl TVB {
     }
 
     /// Get reported length of buffer.
-    pub fn reported_length(self: &mut Self) -> usize {
+    pub fn reported_length(&self) -> usize {
         unsafe {
             return tvbuff::tvb_reported_length(self.tvb) as usize;
         }
@@ -465,7 +465,7 @@ impl TVB {
     /// (which can be negative, to indicate bytes from end of buffer). Function
     /// returns 0 if offset is either at the end of the buffer or out of bounds.
     /// No exception is thrown.
-    pub fn reported_length_remaining(self: &mut Self, offset: usize) -> i32 {
+    pub fn reported_length_remaining(&self, offset: usize) -> i32 {
         unsafe {
             return tvbuff::tvb_reported_length_remaining(self.tvb, offset as i32);
         }
@@ -477,7 +477,7 @@ impl TVB {
     /// expense of tvb_get_ptr(), since this routine is smart enough
     /// to copy data in chunks if the request range actually exists in
     /// different "real" tvbuffs.
-    pub fn get_mem(self: &mut Self, offset: usize, length: usize) -> Vec<u8> {
+    pub fn get_mem(&self, offset: usize, length: usize) -> Vec<u8> {
         let mut v: Vec<u8> = vec![0; length];
         unsafe {
             tvbuff::tvb_memcpy(self.tvb, v.as_mut_ptr() as *mut libc::c_void, offset as i32, length);
@@ -488,6 +488,11 @@ impl TVB {
 
 impl From<&mut TVB> for *mut tvbuff::tvbuff_t {
     fn from(field: &mut TVB) -> Self {
+        return field.tvb;
+    }
+}
+impl From<&TVB> for *const tvbuff::tvbuff_t {
+    fn from(field: &TVB) -> Self {
         return field.tvb;
     }
 }

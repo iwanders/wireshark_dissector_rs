@@ -256,7 +256,7 @@ extern "C" {
     pub fn proto_tree_add_protocol_format(
         tree: *mut proto_tree,
         hfindex: HFIndex,
-        tvb: *mut tvbuff_t,
+        tvb: *const tvbuff_t,
         start: i32,
         length: i32,
         format: *const libc::c_char,
@@ -266,7 +266,7 @@ extern "C" {
     pub fn proto_tree_add_item(
         tree: *mut proto_tree,
         hfindex: HFIndex,
-        tvb: *mut tvbuff_t,
+        tvb: *const tvbuff_t,
         start: i32,
         length: i32,
         encoding: Encoding,
@@ -275,7 +275,7 @@ extern "C" {
     pub fn proto_tree_add_item_ret_int(
         tree: *mut proto_tree,
         hfindex: HFIndex,
-        tvb: *mut tvbuff_t,
+        tvb: *const tvbuff_t,
         start: i32,
         length: i32,
         encoding: Encoding,
@@ -285,7 +285,7 @@ extern "C" {
     pub fn proto_tree_add_item_ret_uint64(
         tree: *mut proto_tree,
         hfindex: HFIndex,
-        tvb: *mut tvbuff_t,
+        tvb: *const tvbuff_t,
         start: i32,
         length: i32,
         encoding: Encoding,
@@ -295,7 +295,7 @@ extern "C" {
     pub fn proto_tree_add_item_ret_uint(
         tree: *mut proto_tree,
         hfindex: HFIndex,
-        tvb: *mut tvbuff_t,
+        tvb: *const tvbuff_t,
         start: i32,
         length: i32,
         encoding: Encoding,
@@ -305,7 +305,7 @@ extern "C" {
     pub fn proto_tree_add_bits_item(
         tree: *mut proto_tree,
         hfindex: HFIndex,
-        tvb: *mut tvbuff_t,
+        tvb: *const tvbuff_t,
         bit_offset: i32,
         no_of_bits: i32,
         encoding: Encoding,
