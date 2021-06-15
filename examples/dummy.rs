@@ -3,13 +3,8 @@
 
 extern crate wireshark_dissector_rs;
 
-use wireshark_dissector_rs::dissector;
-use wireshark_dissector_rs::epan;
-
-// Lift these to make it less verbose.
-type FieldType = dissector::FieldType;
-type FieldDisplay = dissector::FieldDisplay;
-type Encoding = epan::proto::Encoding;
+use wireshark_dissector_rs::dissector::{self, FieldDisplay, FieldType};
+use wireshark_dissector_rs::epan::{self, proto::Encoding};
 
 // Need something to identify the tree foldouts by.
 #[repr(usize)]
