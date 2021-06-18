@@ -29,6 +29,7 @@ impl MyDissector {
         abbrev: dissector::StringContainer::StaticStr("proto.main"),
         field_type: FieldType::PROTOCOL,
         display: FieldDisplay::BASE_NONE,
+        ..Default::default()
     };
 
     /// PacketField for a first byte, represented as hexadecimal.
@@ -37,6 +38,7 @@ impl MyDissector {
         abbrev: dissector::StringContainer::StaticStr("proto.byte0"),
         field_type: FieldType::UINT8,
         display: FieldDisplay::BASE_HEX,
+        ..Default::default()
     };
 
     /// The above is pretty verbose with that string container... so we also support:
@@ -49,6 +51,7 @@ impl MyDissector {
         abbrev: dissector::StringContainer::StaticStr("proto.byte3"),
         field_type: FieldType::INT32,
         display: FieldDisplay::BASE_DEC,
+        ..Default::default()
     };
 
     /// Field to represent an unsigned 64 bit integer as hexadecimal.
@@ -57,13 +60,14 @@ impl MyDissector {
         abbrev: dissector::StringContainer::StaticStr("proto.byte4"),
         field_type: FieldType::UINT64,
         display: FieldDisplay::BASE_HEX,
+        ..Default::default()
     };
 
     const BITFIELD: dissector::PacketField = dissector::PacketField::fixed(
         "A bitfield",
         "proto.bitfield1",
         FieldType::UINT16,
-        FieldDisplay::BASE_DEC,
+        FieldDisplay::BASE_DEC
     );
 }
 
@@ -97,6 +101,7 @@ impl MyDissector {
             abbrev: dissector::StringContainer::String(String::from("proto.runtime.field1")),
             field_type: FieldType::UINT16,
             display: FieldDisplay::BASE_HEX,
+            ..Default::default()
         };
 
         MyDissector {

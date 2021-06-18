@@ -80,6 +80,13 @@ impl StringContainer {
     }
 }
 
+impl Default for StringContainer {
+    fn default() -> StringContainer
+    {
+        StringContainer::StaticStr("")
+    }
+}
+
 // Implement comparison operator against string slice.
 impl std::cmp::PartialEq<&str> for StringContainer {
     fn eq(&self, other: &&str) -> bool {
@@ -89,6 +96,9 @@ impl std::cmp::PartialEq<&str> for StringContainer {
         }
     }
 }
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct ValueString(usize, StringContainer);
 
 /// Specification for a field that can be displayed, simpler form of field_info on the C side.
 // todo: Should we consolidate this (somehow?!) with epan::HeaderFieldInfo's wrapper for inspection?
@@ -102,7 +112,23 @@ pub struct PacketField {
     pub field_type: FieldType,
     /// This specifies how the field should be represented.
     pub display: FieldDisplay,
+    /// Holds strings that should be displayed for the integer values.
+    pub value_strings: Vec<ValueString>,
 }
+
+impl Default for PacketField {
+    fn default() -> PacketField
+    {
+        PacketField {
+            name: Default::default(),
+            abbrev: Default::default(),
+            field_type: Default::default(),
+            display: Default::default(),
+            value_strings: vec!(),
+        }
+    }
+}
+
 
 impl PacketField {
     pub const fn fixed(name: &'static str, abbrev: &'static str, field_type: FieldType, display: FieldDisplay) -> Self {
@@ -111,6 +137,7 @@ impl PacketField {
             abbrev: StringContainer::StaticStr(abbrev),
             field_type: field_type,
             display: display,
+            value_strings: vec!(),
         }
     }
 }

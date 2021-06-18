@@ -1,6 +1,8 @@
 // Copyright 2021-2021, Ivor Wanders and the wireshark_dissector_rs contributors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+// Should have types from https://github.com/wireshark/wireshark/blob/master/epan/proto.h
+
 #![allow(non_camel_case_types)]
 #![allow(dead_code)]
 
@@ -60,6 +62,12 @@ pub enum FieldDisplay {
 impl FieldDisplay {
     pub const BASE_FLOAT: FieldDisplay = FieldDisplay::BASE_NONE;
     pub const STR_UNICODE: FieldDisplay = FieldDisplay::BASE_NONE;
+}
+
+impl Default for FieldDisplay {
+    fn default() -> Self {
+        FieldDisplay::BASE_NONE
+    }
 }
 
 #[repr(C)]
