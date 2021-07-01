@@ -35,6 +35,7 @@ pub mod packet_info;
 pub mod proto;
 pub mod range;
 pub mod tvbuff;
+pub mod value_string;
 
 pub type FieldType = ftypes::ftenum;
 pub type FieldDisplay = proto::FieldDisplay;
@@ -158,7 +159,7 @@ pub trait HeaderFieldInfo : Debug {
         FieldDisplay::BASE_NONE
     }
 
-    fn strings(&self) -> Option<Vec<(i64, String)>>
+    fn strings(&self) -> Option<Vec<(u32, String)>>
     {
         None
     }

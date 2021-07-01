@@ -18,9 +18,39 @@ enum TreeIdentifier {
 struct MyDissector {
     field_mapping: Vec<(Box<dyn HeaderFieldInfo>, epan::proto::HFIndex)>,
     tree_indices: Vec<epan::proto::ETTIndex>,
-
-    fields_made_at_runtime: Vec<dissector::BasicHeaderFieldInfo>,
+    fields_made_at_runtime: Vec<ExtendedHeaderFieldInfo>,
 }
+
+/// We can also make more custom header field infos
+#[derive(Debug, Clone)]
+struct ExtendedHeaderFieldInfo
+{
+    info: dissector::BasicHeaderFieldInfo,
+    strings: Option<Vec<(u32, String)>>,
+    blurb: Option<String>,
+}
+
+impl epan::HeaderFieldInfo for ExtendedHeaderFieldInfo {
+    fn name(&self) -> String {
+        (&self.info as &dyn epan::HeaderFieldInfo).name()
+    }
+    fn abbrev(&self) -> String {
+        (&self.info as &dyn epan::HeaderFieldInfo).abbrev()
+    }
+    fn feature_type(&self) -> epan::ftypes::ftenum {
+        (&self.info as &dyn epan::HeaderFieldInfo).feature_type()
+    }
+    fn display_type(&self) -> epan::proto::FieldDisplay {
+        (&self.info as &dyn epan::HeaderFieldInfo).display_type()
+    }
+    fn strings(&self) -> Option<Vec<(u32, String)>> {
+        self.strings.clone()
+    }
+    fn blurb(&self) -> Option<String> {
+        self.blurb.clone()
+    }
+}
+
 
 impl MyDissector {
     /// BasicHeaderFieldInfo for the main root element of our dissection.
@@ -69,9 +99,9 @@ impl MyDissector {
 
 impl MyDissector {
     /// Helper function to retrieve the HFIndex that's associated to one of the BasicHeaderFieldInfos we used during setup.
-    fn get_id(self: &Self, desired_field: &dissector::BasicHeaderFieldInfo) -> epan::proto::HFIndex {
+    fn get_id(self: &Self, desired_field: &dyn HeaderFieldInfo) -> epan::proto::HFIndex {
         for (field, index) in &self.field_mapping {
-            if field.name().as_str() == desired_field.name.as_str() {
+            if field.name().as_str() == desired_field.name().as_str() {
                 return *index;
             }
         }
@@ -92,17 +122,36 @@ impl MyDissector {
     fn new() -> MyDissector {
         // Look, it's using runtime Strings. we can still only do the creation of the fields once... but it allows
         // composing things.
-        let runtime_defined_field = dissector::BasicHeaderFieldInfo {
-            name: dissector::StringContainer::String(String::from("runtime.field")),
-            abbrev: dissector::StringContainer::String(String::from("proto.runtime.field1")),
-            field_type: FieldType::UINT16,
-            display: FieldDisplay::BASE_HEX,
+        let runtime_defined_field = ExtendedHeaderFieldInfo{
+            info: dissector::BasicHeaderFieldInfo {
+                name: dissector::StringContainer::String(String::from("runtime.field")),
+                abbrev: dissector::StringContainer::String(String::from("proto.runtime.field1")),
+                field_type: FieldType::UINT16,
+                display: FieldDisplay::BASE_HEX,
+            },
+            blurb: None,
+            strings: None,
+        };
+
+        let field_with_strings = ExtendedHeaderFieldInfo{
+            info: dissector::BasicHeaderFieldInfo {
+                name: dissector::StringContainer::String(String::from("runtime.field.with_strings")),
+                abbrev: dissector::StringContainer::String(String::from("proto.runtime.with_strings")),
+                field_type: FieldType::UINT8,
+                display: FieldDisplay::BASE_HEX,
+            },
+            blurb: Some("This is the blurb.".to_string()),
+            strings: Some(vec![(0, "Zero".to_string()),
+                               (1, "One".to_string()),
+                               (2, "Two".to_string()),
+                               (3, "Three".to_string()),
+                             ]),
         };
 
         MyDissector {
             field_mapping: Vec::new(),
             tree_indices: Vec::new(),
-            fields_made_at_runtime: vec![runtime_defined_field],
+            fields_made_at_runtime: vec![runtime_defined_field, field_with_strings],
         }
     }
 }
@@ -119,7 +168,7 @@ impl dissector::Dissector for MyDissector {
         f.push(MyDissector::BITFIELD.as_boxed());
 
         for i in 0..self.fields_made_at_runtime.len() {
-            f.push(self.fields_made_at_runtime[i].clone().as_boxed());
+            f.push(Box::new(self.fields_made_at_runtime[i].clone()));
         }
         return f;
     }
@@ -187,6 +236,16 @@ impl dissector::Dissector for MyDissector {
             2,
             Encoding::BIG_ENDIAN,
         );
+
+        // Add the item with the enums.
+        fold_thing.add_item(
+            self.get_id(&self.fields_made_at_runtime[1]),
+            tvb,
+            offset + 10,
+            2,
+            Encoding::BIG_ENDIAN,
+        );
+
 
         // And we can prepend text if the returned value is even.
         if retval % 2 == 0 {
