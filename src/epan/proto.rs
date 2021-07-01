@@ -62,6 +62,24 @@ impl FieldDisplay {
     pub const STR_UNICODE: FieldDisplay = FieldDisplay::BASE_NONE;
 }
 
+#[repr(i32)]
+#[derive(Clone, Copy, Debug)]
+pub enum FieldDisplayFlags {
+    /* Following constants have to be ORed with a field_display_e when dissector
+    * want to use specials value-string MACROs for a header_field_info */
+    RANGE_STRING = 0x0100,
+    EXT_STRING = 0x0200,
+    VAL64_STRING = 0x0400,
+    ALLOW_ZERO = 0x0800,  /*< Display <none> instead of <MISSING> for zero sized byte array */
+    UNIT_STRING = 0x1000,  /*< Add unit text to the field value */
+    NO_DISPLAY_VALUE = 0x2000,  /*< Just display the field name with no value.  Intended for
+                                 byte arrays or header fields above a subtree */
+    PROTOCOL_INFO = 0x4000,  /*< protocol_t in [FIELDCONVERT].  Internal use only. */
+    SPECIAL_VALS = 0x8000,  /*< field will not display "Unknown" if value_string match is not found */
+}
+
+
+
 #[repr(C)]
 #[allow(dead_code)]
 #[derive(Debug)]
@@ -100,7 +118,7 @@ pub struct header_field_info {
     pub abbrev: *const libc::c_char,
     pub type_: ftenum,
     pub display: FieldDisplay,
-    pub strings: *const libc::c_char, // actually void ptr
+    pub strings: *const libc::c_void,
     pub bitmask: u64,
     pub blurb: *const libc::c_char,
 
@@ -118,7 +136,7 @@ impl Default for header_field_info {
             abbrev: 0 as *const libc::c_char,
             type_: Default::default(),
             display: FieldDisplay::BASE_NONE,
-            strings: 0 as *const libc::c_char,
+            strings: 0 as *const libc::c_char as *const libc::c_void,
             bitmask: 0,
             blurb: 0 as *const libc::c_char,
             id: -1,

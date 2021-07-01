@@ -16,13 +16,32 @@ fn string_container_to_perm(v: &dissector::StringContainer) -> *const libc::c_ch
 
 impl From<&Box<dyn epan::HeaderFieldInfo>> for epan::proto::header_field_info {
     fn from(hfi: &Box<dyn epan::HeaderFieldInfo>) -> Self {
-
+        // If we have strings, we need to build that struct and leak it explicitly.
+        let strings_input = hfi.strings();
+        let mut strings_output = 0 as *const libc::c_char as *const libc::c_void;
+        if let Some(v) = strings_input
+        {
+            let mut string_entries: Box<Vec<epan::value_string::value_string>> = Box::new(Vec::new());
+            // string_entries.resize(v.len(), Default::default());
+            for (i, s) in v.iter()
+            {
+                string_entries.push(epan::value_string::value_string{
+                    value: *i,
+                    string: util::perm_string_ptr(&s),
+                })
+            }
+            
+            let value_str_ptr = (&string_entries[0]) as *const epan::value_string::value_string;
+            // now, transmute that pointer to the const char*
+            strings_output = unsafe {std::mem::transmute::<*const epan::value_string::value_string, *const libc::c_void>(value_str_ptr)};
+            Box::leak(string_entries);
+        }
         epan::proto::header_field_info {
             name: util::perm_string_ptr(&hfi.name()),
             abbrev: util::perm_string_ptr(&hfi.abbrev()),
             type_: hfi.feature_type(),
             display: hfi.display_type(),
-            // pub strings: *const libc::c_char, // actually void ptr
+            strings: strings_output,
             // pub bitmask: u64,
             // pub blurb: *const libc::c_char,
 
