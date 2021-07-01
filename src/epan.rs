@@ -145,48 +145,58 @@ impl Debug for FValue<'_> {
     }
 }
 
-#[derive(Debug,Clone)]
-pub enum HeaderFieldStrings
-{
+/// Enum to specify what type strings to use during the dissection.
+#[derive(Debug, Clone)]
+pub enum HeaderFieldStrings {
+    /// No string representation for the decoded value.
     None,
+
+    /// Lookup using u32 as index.
     ValueString(Vec<(u32, String)>),
+
+    /// Lookup using u64 as index.
     Value64String(Vec<(u64, String)>),
+
+    /// Lookup using a range.
     RangeString(Vec<((u32, u32), String)>),
+    // There's some more, that are not supported right now.
     // string-string
     // ext string
 }
 
-pub trait HeaderFieldInfo : Debug {
+/// Trait to represent a Header Field Info. This is what the user should provide to specify the
+/// dissection fields. It gets converted to the [`proto::header_field_info`] struct.
+pub trait HeaderFieldInfo: Debug {
+    /// The human readable name for this header field. ('My Integer')
     fn name(&self) -> String;
 
+    /// The abbreviation used for filters. ("proto.my_integer")
     fn abbrev(&self) -> String;
 
-    fn feature_type(&self) -> ftypes::ftenum
-    {
+    /// The feature type for this entry.
+    fn feature_type(&self) -> ftypes::ftenum {
         Default::default()
     }
-    fn display_type(&self) -> FieldDisplay
-    {
+
+    /// Specifies how this entry should be displayed.
+    fn display_type(&self) -> FieldDisplay {
         FieldDisplay::BASE_NONE
     }
 
-    fn strings(&self) -> HeaderFieldStrings
-    {
+    /// Strings to look up from after dissection.
+    fn strings(&self) -> HeaderFieldStrings {
         HeaderFieldStrings::None
     }
 
-    fn bitmask(&self) -> u64
-    {
+    /// Bitmask of interesting bits.
+    fn bitmask(&self) -> u64 {
         0
     }
 
-    fn blurb(&self) -> Option<String>
-    {
+    fn blurb(&self) -> Option<String> {
         None
     }
 }
-
-
 
 /// Struct to represent header field information, serves as a read only wrapper around the `header_field_info` C struct.
 pub struct WrappedHeaderFieldInfo {
@@ -201,8 +211,6 @@ impl WrappedHeaderFieldInfo {
         }
         return Box::new(WrappedHeaderFieldInfo { hfi: header_field_info });
     }
-
-    
 }
 
 impl HeaderFieldInfo for WrappedHeaderFieldInfo {

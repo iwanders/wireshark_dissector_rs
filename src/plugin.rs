@@ -7,65 +7,55 @@ use crate::util;
 
 use crate::dissector::Dissector;
 
-fn string_container_to_perm(v: &dissector::StringContainer) -> *const libc::c_char {
-    match v {
-        dissector::StringContainer::StaticStr(s) => util::perm_string_ptr(&s),
-        dissector::StringContainer::String(s) => util::perm_string_ptr(&s),
-    }
-}
-
 impl From<&Box<dyn epan::HeaderFieldInfo>> for epan::proto::header_field_info {
     fn from(hfi: &Box<dyn epan::HeaderFieldInfo>) -> Self {
         // If we have strings, we need to build that struct and leak it explicitly.
         let strings_input = hfi.strings();
         let mut strings_output = 0 as *const libc::c_char as *const libc::c_void;
 
+        // if we have strings, we need to set some bits in the display value.
         let mut display_or: i32 = 0;
 
-        if let epan::HeaderFieldStrings::ValueString(v) = strings_input
-        {
+        if let epan::HeaderFieldStrings::ValueString(v) = strings_input {
             let mut string_entries: Box<Vec<epan::value_string::value_string>> = Box::new(Vec::new());
-            for (i, s) in v.iter()
-            {
-                string_entries.push(epan::value_string::value_string{
+            for (i, s) in v.iter() {
+                string_entries.push(epan::value_string::value_string {
                     value: *i,
                     string: util::perm_string_ptr(&s),
                 })
             }
             // Needs to be terminated with a null entry
             string_entries.push(Default::default());
-            
+
             let value_str_ptr = (&string_entries[0]) as *const epan::value_string::value_string;
             // now, transmute that pointer to the const char*
-            strings_output = unsafe {std::mem::transmute::<*const epan::value_string::value_string, *const libc::c_void>(value_str_ptr)};
+            strings_output = unsafe {
+                std::mem::transmute::<*const epan::value_string::value_string, *const libc::c_void>(value_str_ptr)
+            };
             Box::leak(string_entries);
-        }
-        else if let epan::HeaderFieldStrings::Value64String(v) = strings_input
-        {
+        } else if let epan::HeaderFieldStrings::Value64String(v) = strings_input {
             display_or = epan::proto::FieldDisplayFlags::VAL64_STRING as i32;
             let mut string_entries: Box<Vec<epan::value_string::value64_string>> = Box::new(Vec::new());
-            for (i, s) in v.iter()
-            {
-                string_entries.push(epan::value_string::value64_string{
+            for (i, s) in v.iter() {
+                string_entries.push(epan::value_string::value64_string {
                     value: *i,
                     string: util::perm_string_ptr(&s),
                 })
             }
             // Needs to be terminated with a null entry
             string_entries.push(Default::default());
-            
+
             let value_str_ptr = (&string_entries[0]) as *const epan::value_string::value64_string;
             // now, transmute that pointer to the const char*
-            strings_output = unsafe {std::mem::transmute::<*const epan::value_string::value64_string, *const libc::c_void>(value_str_ptr)};
+            strings_output = unsafe {
+                std::mem::transmute::<*const epan::value_string::value64_string, *const libc::c_void>(value_str_ptr)
+            };
             Box::leak(string_entries);
-        }
-        else if let epan::HeaderFieldStrings::RangeString(v) = strings_input
-        {
+        } else if let epan::HeaderFieldStrings::RangeString(v) = strings_input {
             display_or = epan::proto::FieldDisplayFlags::RANGE_STRING as i32;
             let mut string_entries: Box<Vec<epan::value_string::value_range_string>> = Box::new(Vec::new());
-            for (i, s) in v.iter()
-            {
-                string_entries.push(epan::value_string::value_range_string{
+            for (i, s) in v.iter() {
+                string_entries.push(epan::value_string::value_range_string {
                     value_min: i.0,
                     value_max: i.1,
                     string: util::perm_string_ptr(&s),
@@ -73,21 +63,21 @@ impl From<&Box<dyn epan::HeaderFieldInfo>> for epan::proto::header_field_info {
             }
             // Needs to be terminated with a null entry
             string_entries.push(Default::default());
-            
+
             let value_str_ptr = (&string_entries[0]) as *const epan::value_string::value_range_string;
             // now, transmute that pointer to the const char*
-            strings_output = unsafe {std::mem::transmute::<*const epan::value_string::value_range_string, *const libc::c_void>(value_str_ptr)};
+            strings_output = unsafe {
+                std::mem::transmute::<*const epan::value_string::value_range_string, *const libc::c_void>(value_str_ptr)
+            };
             Box::leak(string_entries);
         }
 
+        // Blurb is visible in the bottom status bar in wireshark.
         let blurb_input = hfi.blurb();
         let mut blurb_output = 0 as *const libc::c_char;
-        if let Some(b) = blurb_input
-        {
+        if let Some(b) = blurb_input {
             blurb_output = util::perm_string_ptr(&b);
         }
-        
-
 
         epan::proto::header_field_info {
             name: util::perm_string_ptr(&hfi.name()),
@@ -97,7 +87,7 @@ impl From<&Box<dyn epan::HeaderFieldInfo>> for epan::proto::header_field_info {
             strings: strings_output,
             bitmask: hfi.bitmask(),
             blurb: blurb_output,
-            //
+
             // pub id: i32,
             // pub parent: i32,
             // pub ref_type: hf_ref_type,
@@ -105,10 +95,8 @@ impl From<&Box<dyn epan::HeaderFieldInfo>> for epan::proto::header_field_info {
             // pub same_name_next: *mut header_field_info,
             ..Default::default()
         }
-
     }
 }
-
 
 use std::rc::Rc;
 // Global state
@@ -211,10 +199,12 @@ extern "C" fn proto_register_protoinfo() {
         epan::proto::proto_register_field_array(PROTO_ID, rawptr, hf_fields.len() as i32);
     }
 
-    // And, then we assembly the return struct.
-    let hf_indices = fields_input.drain(..).enumerate().map(|(i, v)| {
-        (v, field_ids[i])
-    }).collect::<Vec<(Box<dyn epan::HeaderFieldInfo>, epan::proto::HFIndex)>>();
+    // And, then we assemble the return struct.
+    let hf_indices = fields_input
+        .drain(..)
+        .enumerate()
+        .map(|(i, v)| (v, field_ids[i]))
+        .collect::<Vec<(Box<dyn epan::HeaderFieldInfo>, epan::proto::HFIndex)>>();
 
     // Pass the now usable indices back to the dissector.
     dissector_tmp.set_field_indices(hf_indices);
