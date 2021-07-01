@@ -30,6 +30,8 @@ impl From<&Box<dyn epan::HeaderFieldInfo>> for epan::proto::header_field_info {
                     string: util::perm_string_ptr(&s),
                 })
             }
+            // Needs to be terminated with a null entry
+            string_entries.push(Default::default());
             
             let value_str_ptr = (&string_entries[0]) as *const epan::value_string::value_string;
             // now, transmute that pointer to the const char*
