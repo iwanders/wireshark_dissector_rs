@@ -4,7 +4,7 @@
 extern crate wireshark_dissector_rs;
 
 use wireshark_dissector_rs::dissector::{self, FieldDisplay, FieldType};
-use wireshark_dissector_rs::epan::{self, proto::Encoding};
+use wireshark_dissector_rs::epan::{self, proto::Encoding, HeaderFieldInfo};
 
 // Need something to identify the tree foldouts by.
 #[repr(usize)]
@@ -16,23 +16,23 @@ enum TreeIdentifier {
 
 /// Our dissector, just needs to hold the HFIndicers and ETTIndices.
 struct MyDissector {
-    field_mapping: Vec<(dissector::PacketField, epan::proto::HFIndex)>,
+    field_mapping: Vec<(Box<dyn HeaderFieldInfo>, epan::proto::HFIndex)>,
     tree_indices: Vec<epan::proto::ETTIndex>,
 
-    fields_made_at_runtime: Vec<dissector::PacketField>,
+    fields_made_at_runtime: Vec<dissector::BasicHeaderFieldInfo>,
 }
 
 impl MyDissector {
-    /// PacketField for the main root element of our dissection.
-    const FIELD1: dissector::PacketField = dissector::PacketField {
+    /// BasicHeaderFieldInfo for the main root element of our dissection.
+    const FIELD1: dissector::BasicHeaderFieldInfo = dissector::BasicHeaderFieldInfo {
         name: dissector::StringContainer::StaticStr("protoname"),
         abbrev: dissector::StringContainer::StaticStr("proto.main"),
         field_type: FieldType::PROTOCOL,
         display: FieldDisplay::BASE_NONE,
     };
 
-    /// PacketField for a first byte, represented as hexadecimal.
-    const FIELD2: dissector::PacketField = dissector::PacketField {
+    /// BasicHeaderFieldInfo for a first byte, represented as hexadecimal.
+    const FIELD2: dissector::BasicHeaderFieldInfo = dissector::BasicHeaderFieldInfo {
         name: dissector::StringContainer::StaticStr("first byte"),
         abbrev: dissector::StringContainer::StaticStr("proto.byte0"),
         field_type: FieldType::UINT8,
@@ -40,11 +40,11 @@ impl MyDissector {
     };
 
     /// The above is pretty verbose with that string container... so we also support:
-    const FIELD3: dissector::PacketField =
-        dissector::PacketField::fixed("second byte", "proto.byte1", FieldType::UINT16, FieldDisplay::BASE_HEX);
+    const FIELD3: dissector::BasicHeaderFieldInfo =
+        dissector::BasicHeaderFieldInfo::fixed("second byte", "proto.byte1", FieldType::UINT16, FieldDisplay::BASE_HEX);
 
     /// Field to represent a signed 32 bit integer.
-    const FIELD32: dissector::PacketField = dissector::PacketField {
+    const FIELD32: dissector::BasicHeaderFieldInfo = dissector::BasicHeaderFieldInfo {
         name: dissector::StringContainer::StaticStr("uint32 byte"),
         abbrev: dissector::StringContainer::StaticStr("proto.byte3"),
         field_type: FieldType::INT32,
@@ -52,14 +52,14 @@ impl MyDissector {
     };
 
     /// Field to represent an unsigned 64 bit integer as hexadecimal.
-    const FIELD64: dissector::PacketField = dissector::PacketField {
+    const FIELD64: dissector::BasicHeaderFieldInfo = dissector::BasicHeaderFieldInfo {
         name: dissector::StringContainer::StaticStr("uint64 byte"),
         abbrev: dissector::StringContainer::StaticStr("proto.byte4"),
         field_type: FieldType::UINT64,
         display: FieldDisplay::BASE_HEX,
     };
 
-    const BITFIELD: dissector::PacketField = dissector::PacketField::fixed(
+    const BITFIELD: dissector::BasicHeaderFieldInfo = dissector::BasicHeaderFieldInfo::fixed(
         "A bitfield",
         "proto.bitfield1",
         FieldType::UINT16,
@@ -68,10 +68,10 @@ impl MyDissector {
 }
 
 impl MyDissector {
-    /// Helper function to retrieve the HFIndex that's associated to one of the packetfields we used during setup.
-    fn get_id(self: &Self, desired_field: &dissector::PacketField) -> epan::proto::HFIndex {
+    /// Helper function to retrieve the HFIndex that's associated to one of the BasicHeaderFieldInfos we used during setup.
+    fn get_id(self: &Self, desired_field: &dissector::BasicHeaderFieldInfo) -> epan::proto::HFIndex {
         for (field, index) in &self.field_mapping {
-            if field.name == desired_field.name {
+            if field.name().as_str() == desired_field.name.as_str() {
                 return *index;
             }
         }
@@ -92,7 +92,7 @@ impl MyDissector {
     fn new() -> MyDissector {
         // Look, it's using runtime Strings. we can still only do the creation of the fields once... but it allows
         // composing things.
-        let runtime_defined_field = dissector::PacketField {
+        let runtime_defined_field = dissector::BasicHeaderFieldInfo {
             name: dissector::StringContainer::String(String::from("runtime.field")),
             abbrev: dissector::StringContainer::String(String::from("proto.runtime.field1")),
             field_type: FieldType::UINT16,
@@ -108,24 +108,24 @@ impl MyDissector {
 }
 
 impl dissector::Dissector for MyDissector {
-    /// This function is called during setup, it must provide all PacketFields we may end up using for registration.
-    fn get_fields(self: &Self) -> Vec<dissector::PacketField> {
+    /// This function is called during setup, it must provide all BasicHeaderFieldInfos we may end up using for registration.
+    fn get_fields(self: &Self) -> Vec<Box<dyn HeaderFieldInfo>> {
         let mut f = Vec::new();
-        f.push(MyDissector::FIELD1);
-        f.push(MyDissector::FIELD2);
-        f.push(MyDissector::FIELD3);
-        f.push(MyDissector::FIELD32);
-        f.push(MyDissector::FIELD64);
-        f.push(MyDissector::BITFIELD);
+        f.push(MyDissector::FIELD1.as_boxed());
+        f.push(MyDissector::FIELD2.as_boxed());
+        f.push(MyDissector::FIELD3.as_boxed());
+        f.push(MyDissector::FIELD32.as_boxed());
+        f.push(MyDissector::FIELD64.as_boxed());
+        f.push(MyDissector::BITFIELD.as_boxed());
 
         for i in 0..self.fields_made_at_runtime.len() {
-            f.push(self.fields_made_at_runtime[i].clone());
+            f.push(self.fields_made_at_runtime[i].clone().as_boxed());
         }
         return f;
     }
 
     /// This function is called after registering the fields retrieved from [`get_fields()`], it stores the indieces.
-    fn set_field_indices(self: &mut Self, hfindices: Vec<(dissector::PacketField, epan::proto::HFIndex)>) {
+    fn set_field_indices(self: &mut Self, hfindices: Vec<(Box<dyn HeaderFieldInfo>, epan::proto::HFIndex)>) {
         self.field_mapping = hfindices;
     }
 

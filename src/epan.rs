@@ -144,62 +144,99 @@ impl Debug for FValue<'_> {
     }
 }
 
+pub trait HeaderFieldInfo : Debug {
+    fn name(&self) -> String;
+
+    fn abbrev(&self) -> String;
+
+    fn feature_type(&self) -> ftypes::ftenum
+    {
+        Default::default()
+    }
+    fn display_type(&self) -> FieldDisplay
+    {
+        FieldDisplay::BASE_NONE
+    }
+
+    fn strings(&self) -> Option<Vec<(i64, String)>>
+    {
+        None
+    }
+
+    fn bitmask(&self) -> u64
+    {
+        0
+    }
+
+    fn blurb(&self) -> Option<String>
+    {
+        None
+    }
+}
+
+
+
 /// Struct to represent header field information, serves as a read only wrapper around the `header_field_info` C struct.
-pub struct HeaderFieldInfo {
+pub struct WrappedHeaderFieldInfo {
     hfi: *const proto::header_field_info,
 }
-impl HeaderFieldInfo {
+
+impl WrappedHeaderFieldInfo {
     /// Function to make this structure from a raw pointer.
-    pub unsafe fn from_ptr(header_field_info: *const proto::header_field_info) -> HeaderFieldInfo {
+    pub unsafe fn from_ptr(header_field_info: *const proto::header_field_info) -> Box<dyn HeaderFieldInfo> {
         if header_field_info.is_null() {
             panic!("HeaderFieldInfo from nullptr.");
         }
-        return HeaderFieldInfo { hfi: header_field_info };
+        return Box::new(WrappedHeaderFieldInfo { hfi: header_field_info });
     }
 
+    
+}
+
+impl HeaderFieldInfo for WrappedHeaderFieldInfo {
     /// Retrieve the pretty field name
-    pub fn name(self: &Self) -> &str {
+    fn name(&self) -> String {
         use std::ffi::CStr;
         unsafe {
             match CStr::from_ptr((*self.hfi).name).to_str() {
-                Ok(t) => t,
-                Err(_) => "",
+                Ok(t) => t.to_owned(),
+                Err(_) => "".to_owned(),
             }
         }
     }
 
     /// Retrieve the field abbreviation.
-    pub fn abbrev(self: &Self) -> &str {
+    fn abbrev(&self) -> String {
         use std::ffi::CStr;
         unsafe {
             match CStr::from_ptr((*self.hfi).abbrev).to_str() {
-                Ok(t) => t,
-                Err(_) => "",
+                Ok(t) => t.to_owned(),
+                Err(_) => "".to_owned(),
             }
         }
     }
 
     /// Obtain the field type enum.
-    pub fn type_(self: &Self) -> ftypes::ftenum {
+    fn feature_type(&self) -> ftypes::ftenum {
         unsafe {
             return (*self.hfi).type_;
         }
     }
 
     /// Obtain the field display enum.
-    pub fn display(self: &Self) -> proto::FieldDisplay {
+    fn display_type(&self) -> proto::FieldDisplay {
         unsafe {
             return (*self.hfi).display;
         }
     }
 }
 use core::fmt::Debug;
-impl Debug for HeaderFieldInfo {
+impl Debug for WrappedHeaderFieldInfo {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "HeaderFieldInfo {{ ")?;
         write!(f, "name: \"{}\", ", self.name())?;
         write!(f, "abbrev: \"{}\", ", self.abbrev())?;
-        write!(f, "type_: {:?}, ", self.type_())?;
+        write!(f, "feature_type: {:?}, ", self.feature_type())?;
         //~ write!(f, "display: {:?}", self.display())?;  // This segfaults, somewhere in 'gimli'.
         write!(f, "}}")
     }
@@ -220,12 +257,12 @@ impl FieldInfo {
     }
 
     /// Obtain the header field info for this field.
-    pub fn hfinfo(self: &Self) -> Result<HeaderFieldInfo, &'static str> {
+    pub fn hfinfo(self: &Self) -> Result<Box<dyn HeaderFieldInfo>, &'static str> {
         unsafe {
             if (*self.fi).hfinfo.is_null() {
                 return Err("No hfinfo provided");
             }
-            return Ok(HeaderFieldInfo::from_ptr((*self.fi).hfinfo));
+            return Ok(WrappedHeaderFieldInfo::from_ptr((*self.fi).hfinfo));
         }
     }
 

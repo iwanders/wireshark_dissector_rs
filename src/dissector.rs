@@ -24,11 +24,11 @@ use core::fmt::Debug;
 /// protocol tree and data buffer.
 pub trait Dissector {
     /// This function must return a vector of all the possible fields the dissector will end up using.
-    fn get_fields(self: &Self) -> Vec<PacketField>;
+    fn get_fields(self: &Self) -> Vec<Box<dyn epan::HeaderFieldInfo>>;
 
     /// After the fields are registered, this function is called to provide the new [`epan::proto::HFIndex`] that should be used
     /// to refer to the registered fields.
-    fn set_field_indices(self: &mut Self, hf_indices: Vec<(PacketField, epan::proto::HFIndex)>);
+    fn set_field_indices(self: &mut Self, hf_indices: Vec<(Box<dyn epan::HeaderFieldInfo>, epan::proto::HFIndex)>);
 
     /// Called when there is something to dissect, so probably called for every packet. This function must return how
     /// many bytes it used from the tvb.
@@ -91,9 +91,8 @@ impl std::cmp::PartialEq<&str> for StringContainer {
 }
 
 /// Specification for a field that can be displayed, simpler form of field_info on the C side.
-// todo: Should we consolidate this (somehow?!) with epan::HeaderFieldInfo's wrapper for inspection?
-#[derive(Debug, Clone)]
-pub struct PacketField {
+#[derive(Clone)]
+pub struct BasicHeaderFieldInfo {
     /// This is the name as displayed for this field. (`Field Name`).
     pub name: StringContainer,
     /// This is the abbreviation / internal name of the field (`proto.field_name`).
@@ -104,16 +103,48 @@ pub struct PacketField {
     pub display: FieldDisplay,
 }
 
-impl PacketField {
+impl BasicHeaderFieldInfo {
     pub const fn fixed(name: &'static str, abbrev: &'static str, field_type: FieldType, display: FieldDisplay) -> Self {
-        PacketField {
+        BasicHeaderFieldInfo {
             name: StringContainer::StaticStr(name),
             abbrev: StringContainer::StaticStr(abbrev),
             field_type: field_type,
             display: display,
         }
     }
+
+    pub fn as_boxed(&self) -> Box<dyn epan::HeaderFieldInfo>
+    {
+        Box::new(self.clone())
+    }
 }
+
+impl epan::HeaderFieldInfo for BasicHeaderFieldInfo {
+    fn name(&self) -> String {
+        self.name.as_str().to_owned()
+    }
+    fn abbrev(&self) -> String {
+        self.abbrev.as_str().to_owned()
+    }
+    fn feature_type(&self) -> epan::ftypes::ftenum {
+        self.field_type
+    }
+    fn display_type(&self) -> epan::proto::FieldDisplay {
+        self.display
+    }
+}
+
+impl Debug for BasicHeaderFieldInfo {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "BasicHeaderFieldInfo {{ ")?;
+        write!(f, "name: \"{}\", ", self.name.as_str())?;
+        write!(f, "abbrev: \"{}\", ", self.abbrev.as_str())?;
+        write!(f, "field_type: {:?}, ", self.field_type)?;
+        write!(f, "}}")
+    }
+}
+
+
 
 // https://rust-lang.github.io/rfcs/0418-struct-variants.html
 // This is so fancy
