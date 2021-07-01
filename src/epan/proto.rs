@@ -61,6 +61,37 @@ impl FieldDisplay {
     pub const BASE_FLOAT: FieldDisplay = FieldDisplay::BASE_NONE;
     pub const STR_UNICODE: FieldDisplay = FieldDisplay::BASE_NONE;
 }
+impl From<&FieldDisplay> for i32 {
+    fn from(z: &FieldDisplay) -> Self {
+        *z as i32
+    }
+}
+impl From<i32> for FieldDisplay {
+    fn from(z: i32) -> Self {
+        match z & 0xff
+        {
+            0 => FieldDisplay::BASE_NONE,
+            1 => FieldDisplay::BASE_DEC,
+            2 => FieldDisplay::BASE_HEX,
+            3 => FieldDisplay::BASE_OCT,
+            4 => FieldDisplay::BASE_DEC_HEX,
+            5 => FieldDisplay::BASE_HEX_DEC,
+            6 => FieldDisplay::BASE_CUSTOM,
+            7 => FieldDisplay::STR_UNICODE,
+            8 => FieldDisplay::SEP_DOT,
+            9 => FieldDisplay::SEP_DASH,
+            10 => FieldDisplay::SEP_COLON,
+            11 => FieldDisplay::SEP_SPACE,
+            12 => FieldDisplay::BASE_NETMASK,
+            13 => FieldDisplay::BASE_PT_UDP,
+            14 => FieldDisplay::BASE_PT_TCP,
+            15 => FieldDisplay::BASE_PT_DCCP,
+            16 => FieldDisplay::BASE_PT_SCTP,
+            17 => FieldDisplay::BASE_OUI,
+            _=> FieldDisplay::BASE_NONE
+        }
+    }
+}
 
 #[repr(i32)]
 #[derive(Clone, Copy, Debug)]
@@ -117,7 +148,7 @@ pub struct header_field_info {
     pub name: *const libc::c_char,
     pub abbrev: *const libc::c_char,
     pub type_: ftenum,
-    pub display: FieldDisplay,
+    pub display: libc::c_int,
     pub strings: *const libc::c_void,
     pub bitmask: u64,
     pub blurb: *const libc::c_char,
@@ -135,7 +166,7 @@ impl Default for header_field_info {
             name: 0 as *const libc::c_char,
             abbrev: 0 as *const libc::c_char,
             type_: Default::default(),
-            display: FieldDisplay::BASE_NONE,
+            display: (&FieldDisplay::BASE_NONE).into(),
             strings: 0 as *const libc::c_char as *const libc::c_void,
             bitmask: 0,
             blurb: 0 as *const libc::c_char,

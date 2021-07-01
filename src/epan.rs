@@ -145,6 +145,17 @@ impl Debug for FValue<'_> {
     }
 }
 
+#[derive(Debug,Clone)]
+pub enum HeaderFieldStrings
+{
+    None,
+    ValueString(Vec<(u32, String)>),
+    Value64String(Vec<(u64, String)>),
+    RangeString(Vec<((u32, u32), String)>),
+    // string-string
+    // ext string
+}
+
 pub trait HeaderFieldInfo : Debug {
     fn name(&self) -> String;
 
@@ -159,9 +170,9 @@ pub trait HeaderFieldInfo : Debug {
         FieldDisplay::BASE_NONE
     }
 
-    fn strings(&self) -> Option<Vec<(u32, String)>>
+    fn strings(&self) -> HeaderFieldStrings
     {
-        None
+        HeaderFieldStrings::None
     }
 
     fn bitmask(&self) -> u64
@@ -227,7 +238,7 @@ impl HeaderFieldInfo for WrappedHeaderFieldInfo {
     /// Obtain the field display enum.
     fn display_type(&self) -> proto::FieldDisplay {
         unsafe {
-            return (*self.hfi).display;
+            return (*self.hfi).display.into();
         }
     }
 }

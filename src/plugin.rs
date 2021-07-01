@@ -19,10 +19,12 @@ impl From<&Box<dyn epan::HeaderFieldInfo>> for epan::proto::header_field_info {
         // If we have strings, we need to build that struct and leak it explicitly.
         let strings_input = hfi.strings();
         let mut strings_output = 0 as *const libc::c_char as *const libc::c_void;
-        if let Some(v) = strings_input
+
+        let mut display_or: i32 = 0;
+
+        if let epan::HeaderFieldStrings::ValueString(v) = strings_input
         {
             let mut string_entries: Box<Vec<epan::value_string::value_string>> = Box::new(Vec::new());
-            // string_entries.resize(v.len(), Default::default());
             for (i, s) in v.iter()
             {
                 string_entries.push(epan::value_string::value_string{
@@ -38,15 +40,63 @@ impl From<&Box<dyn epan::HeaderFieldInfo>> for epan::proto::header_field_info {
             strings_output = unsafe {std::mem::transmute::<*const epan::value_string::value_string, *const libc::c_void>(value_str_ptr)};
             Box::leak(string_entries);
         }
+        else if let epan::HeaderFieldStrings::Value64String(v) = strings_input
+        {
+            display_or = epan::proto::FieldDisplayFlags::VAL64_STRING as i32;
+            let mut string_entries: Box<Vec<epan::value_string::value64_string>> = Box::new(Vec::new());
+            for (i, s) in v.iter()
+            {
+                string_entries.push(epan::value_string::value64_string{
+                    value: *i,
+                    string: util::perm_string_ptr(&s),
+                })
+            }
+            // Needs to be terminated with a null entry
+            string_entries.push(Default::default());
+            
+            let value_str_ptr = (&string_entries[0]) as *const epan::value_string::value64_string;
+            // now, transmute that pointer to the const char*
+            strings_output = unsafe {std::mem::transmute::<*const epan::value_string::value64_string, *const libc::c_void>(value_str_ptr)};
+            Box::leak(string_entries);
+        }
+        else if let epan::HeaderFieldStrings::RangeString(v) = strings_input
+        {
+            display_or = epan::proto::FieldDisplayFlags::RANGE_STRING as i32;
+            let mut string_entries: Box<Vec<epan::value_string::value_range_string>> = Box::new(Vec::new());
+            for (i, s) in v.iter()
+            {
+                string_entries.push(epan::value_string::value_range_string{
+                    value_min: i.0,
+                    value_max: i.1,
+                    string: util::perm_string_ptr(&s),
+                })
+            }
+            // Needs to be terminated with a null entry
+            string_entries.push(Default::default());
+            
+            let value_str_ptr = (&string_entries[0]) as *const epan::value_string::value_range_string;
+            // now, transmute that pointer to the const char*
+            strings_output = unsafe {std::mem::transmute::<*const epan::value_string::value_range_string, *const libc::c_void>(value_str_ptr)};
+            Box::leak(string_entries);
+        }
+
+        let blurb_input = hfi.blurb();
+        let mut blurb_output = 0 as *const libc::c_char;
+        if let Some(b) = blurb_input
+        {
+            blurb_output = util::perm_string_ptr(&b);
+        }
+        
+
+
         epan::proto::header_field_info {
             name: util::perm_string_ptr(&hfi.name()),
             abbrev: util::perm_string_ptr(&hfi.abbrev()),
             type_: hfi.feature_type(),
-            display: hfi.display_type(),
+            display: ((hfi.display_type() as i32) | display_or).into(),
             strings: strings_output,
-            // pub bitmask: u64,
-            // pub blurb: *const libc::c_char,
-
+            bitmask: hfi.bitmask(),
+            blurb: blurb_output,
             //
             // pub id: i32,
             // pub parent: i32,
