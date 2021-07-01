@@ -3,8 +3,8 @@
 
 extern crate wireshark_dissector_rs;
 
-use wireshark_dissector_rs::dissector::{self, FieldDisplay, FieldType};
-use wireshark_dissector_rs::epan::{self, proto::Encoding, HeaderFieldInfo};
+use wireshark_dissector_rs::dissector::{self, BasicHeaderFieldInfo, FieldDisplay, FieldType, HeaderFieldInfo};
+use wireshark_dissector_rs::epan::{self, proto::Encoding};
 
 // Need something to identify the tree foldouts by.
 #[repr(usize)]
@@ -18,78 +18,31 @@ enum TreeIdentifier {
 struct MyDissector {
     field_mapping: Vec<(Box<dyn HeaderFieldInfo>, epan::proto::HFIndex)>,
     tree_indices: Vec<epan::proto::ETTIndex>,
-    fields_made_at_runtime: Vec<ExtendedHeaderFieldInfo>,
+    fields_made_at_runtime: Vec<BasicHeaderFieldInfo>,
 }
-
-/// We can also make more custom header field infos
-#[derive(Debug, Clone)]
-struct ExtendedHeaderFieldInfo
-{
-    info: dissector::BasicHeaderFieldInfo,
-    strings: epan::HeaderFieldStrings,
-    blurb: Option<String>,
-}
-
-impl epan::HeaderFieldInfo for ExtendedHeaderFieldInfo {
-    fn name(&self) -> String {
-        (&self.info as &dyn epan::HeaderFieldInfo).name()
-    }
-    fn abbrev(&self) -> String {
-        (&self.info as &dyn epan::HeaderFieldInfo).abbrev()
-    }
-    fn feature_type(&self) -> epan::ftypes::ftenum {
-        (&self.info as &dyn epan::HeaderFieldInfo).feature_type()
-    }
-    fn display_type(&self) -> epan::proto::FieldDisplay {
-        (&self.info as &dyn epan::HeaderFieldInfo).display_type()
-    }
-    fn strings(&self) -> epan::HeaderFieldStrings {
-        self.strings.clone()
-    }
-    fn blurb(&self) -> Option<String> {
-        self.blurb.clone()
-    }
-}
-
 
 impl MyDissector {
     /// BasicHeaderFieldInfo for the main root element of our dissection.
-    const FIELD1: dissector::BasicHeaderFieldInfo = dissector::BasicHeaderFieldInfo {
-        name: dissector::StringContainer::StaticStr("protoname"),
-        abbrev: dissector::StringContainer::StaticStr("proto.main"),
-        field_type: FieldType::PROTOCOL,
-        display: FieldDisplay::BASE_NONE,
-    };
+    const FIELD1: BasicHeaderFieldInfo =
+        BasicHeaderFieldInfo::simple("protoname", "proto.main", FieldType::PROTOCOL, FieldDisplay::BASE_NONE);
 
     /// BasicHeaderFieldInfo for a first byte, represented as hexadecimal.
-    const FIELD2: dissector::BasicHeaderFieldInfo = dissector::BasicHeaderFieldInfo {
-        name: dissector::StringContainer::StaticStr("first byte"),
-        abbrev: dissector::StringContainer::StaticStr("proto.byte0"),
-        field_type: FieldType::UINT8,
-        display: FieldDisplay::BASE_HEX,
-    };
+    const FIELD2: BasicHeaderFieldInfo =
+        BasicHeaderFieldInfo::simple("first byte", "proto.byte0", FieldType::UINT8, FieldDisplay::BASE_HEX);
 
     /// The above is pretty verbose with that string container... so we also support:
     const FIELD3: dissector::BasicHeaderFieldInfo =
-        dissector::BasicHeaderFieldInfo::fixed("second byte", "proto.byte1", FieldType::UINT16, FieldDisplay::BASE_HEX);
+        BasicHeaderFieldInfo::simple("second byte", "proto.byte1", FieldType::UINT16, FieldDisplay::BASE_HEX);
 
     /// Field to represent a signed 32 bit integer.
-    const FIELD32: dissector::BasicHeaderFieldInfo = dissector::BasicHeaderFieldInfo {
-        name: dissector::StringContainer::StaticStr("uint32 byte"),
-        abbrev: dissector::StringContainer::StaticStr("proto.byte3"),
-        field_type: FieldType::INT32,
-        display: FieldDisplay::BASE_DEC,
-    };
+    const FIELD32: BasicHeaderFieldInfo =
+        BasicHeaderFieldInfo::simple("uint32 byte", "proto.byte3", FieldType::INT32, FieldDisplay::BASE_DEC);
 
     /// Field to represent an unsigned 64 bit integer as hexadecimal.
-    const FIELD64: dissector::BasicHeaderFieldInfo = dissector::BasicHeaderFieldInfo {
-        name: dissector::StringContainer::StaticStr("uint64 byte"),
-        abbrev: dissector::StringContainer::StaticStr("proto.byte4"),
-        field_type: FieldType::UINT64,
-        display: FieldDisplay::BASE_HEX,
-    };
+    const FIELD64: BasicHeaderFieldInfo =
+        BasicHeaderFieldInfo::simple("uint64 byte", "proto.byte4", FieldType::UINT64, FieldDisplay::BASE_HEX);
 
-    const BITFIELD: dissector::BasicHeaderFieldInfo = dissector::BasicHeaderFieldInfo::fixed(
+    const BITFIELD: BasicHeaderFieldInfo = BasicHeaderFieldInfo::simple(
         "A bitfield",
         "proto.bitfield1",
         FieldType::UINT16,
@@ -121,68 +74,70 @@ impl MyDissector {
 
     fn new() -> MyDissector {
         // Look, it's using runtime Strings. we can still only do the creation of the fields once... but it allows
-        // composing things.
-        let runtime_defined_field = ExtendedHeaderFieldInfo{
-            info: dissector::BasicHeaderFieldInfo {
-                name: dissector::StringContainer::String(String::from("runtime.field")),
-                abbrev: dissector::StringContainer::String(String::from("proto.runtime.field1")),
-                field_type: FieldType::UINT16,
-                display: FieldDisplay::BASE_HEX,
-            },
-            blurb: None,
-            strings: epan::HeaderFieldStrings::None,
+        // composing things at runtime.
+        let runtime_defined_field = BasicHeaderFieldInfo {
+            name: dissector::StringContainer::String(String::from("runtime.field")),
+            abbrev: dissector::StringContainer::String(String::from("proto.runtime.field1")),
+            field_type: FieldType::UINT16,
+            display: FieldDisplay::BASE_HEX,
+            ..Default::default()
         };
 
-        let field_with_strings = ExtendedHeaderFieldInfo{
-            info: dissector::BasicHeaderFieldInfo {
-                name: dissector::StringContainer::String(String::from("runtime.field.with_strings")),
-                abbrev: dissector::StringContainer::String(String::from("proto.runtime.with_strings")),
-                field_type: FieldType::UINT8,
-                display: FieldDisplay::BASE_HEX,
-            },
+        let field_with_strings = BasicHeaderFieldInfo {
+            name: dissector::StringContainer::String(String::from("runtime.field.with_strings")),
+            abbrev: dissector::StringContainer::String(String::from("proto.runtime.with_strings")),
+            field_type: FieldType::UINT8,
+            display: FieldDisplay::BASE_HEX,
             blurb: Some("This is the blurb.".to_string()),
-            strings: epan::HeaderFieldStrings::ValueString(vec![(0, "Zero".to_string()),
-                               (1, "One".to_string()),
-                               (2, "Two".to_string()),
-                               (3, "Three".to_string()),
-                             ]),
+            strings: epan::HeaderFieldStrings::ValueString(vec![
+                (0, "Zero".to_string()),
+                (1, "One".to_string()),
+                (2, "Two".to_string()),
+                (3, "Three".to_string()),
+            ]),
+            ..Default::default()
         };
 
-        let field_with_strings64 = ExtendedHeaderFieldInfo{
-            info: dissector::BasicHeaderFieldInfo {
-                name: dissector::StringContainer::String(String::from("runtime.field.with_strings64")),
-                abbrev: dissector::StringContainer::String(String::from("proto.runtime.with_strings64")),
-                field_type: FieldType::UINT64,
-                display: FieldDisplay::BASE_HEX,
-            },
+        let field_with_strings64 = BasicHeaderFieldInfo {
+            name: dissector::StringContainer::String(String::from("runtime.field.with_strings64")),
+            abbrev: dissector::StringContainer::String(String::from("proto.runtime.with_strings64")),
+            field_type: FieldType::UINT64,
+            display: FieldDisplay::BASE_HEX,
+
             blurb: Some("This is the blurb.".to_string()),
-            strings: epan::HeaderFieldStrings::Value64String(vec![(0, "Zero".to_string()),
-                               (1, "One".to_string()),
-                               (2, "Two".to_string()),
-                               (3, "Three".to_string()),
-                             ]),
+            strings: epan::HeaderFieldStrings::Value64String(vec![
+                (0, "Zero".to_string()),
+                (1, "One".to_string()),
+                (2, "Two".to_string()),
+                (3, "Three".to_string()),
+            ]),
+            ..Default::default()
         };
 
-        let with_strings_range = ExtendedHeaderFieldInfo{
-            info: dissector::BasicHeaderFieldInfo {
-                name: dissector::StringContainer::String(String::from("runtime.field.with_strings_range")),
-                abbrev: dissector::StringContainer::String(String::from("proto.runtime.with_strings_range")),
-                field_type: FieldType::UINT32,
-                display: FieldDisplay::BASE_HEX,
-            },
+        let with_strings_range = BasicHeaderFieldInfo {
+            name: dissector::StringContainer::String(String::from("runtime.field.with_strings_range")),
+            abbrev: dissector::StringContainer::String(String::from("proto.runtime.with_strings_range")),
+            field_type: FieldType::UINT32,
+            display: FieldDisplay::BASE_HEX,
+
             blurb: Some("This is the blurb.".to_string()),
-            strings: epan::HeaderFieldStrings::RangeString(vec![((0, 5), "Few".to_string()),
-                               ((5, 1<<16), "Many".to_string()),
-                               ((1<<16, 0xFFFFFFFF), "Lots".to_string()),
-                             ]),
+            strings: epan::HeaderFieldStrings::RangeString(vec![
+                ((0, 5), "Few".to_string()),
+                ((5, 1 << 16), "Many".to_string()),
+                ((1 << 16, 0xFFFFFFFF), "Lots".to_string()),
+            ]),
+            ..Default::default()
         };
 
         MyDissector {
             field_mapping: Vec::new(),
             tree_indices: Vec::new(),
-            fields_made_at_runtime: vec![runtime_defined_field, field_with_strings,
-                                        field_with_strings64,
-                                        with_strings_range]
+            fields_made_at_runtime: vec![
+                runtime_defined_field,
+                field_with_strings,
+                field_with_strings64,
+                with_strings_range,
+            ],
         }
     }
 }
@@ -277,7 +232,6 @@ impl dissector::Dissector for MyDissector {
             Encoding::BIG_ENDIAN,
         );
 
-
         // Add the item with the 64 bit enums.
         fold_thing.add_item(
             self.get_id(&self.fields_made_at_runtime[2]),
@@ -295,7 +249,6 @@ impl dissector::Dissector for MyDissector {
             4,
             Encoding::BIG_ENDIAN,
         );
-
 
         // And we can prepend text if the returned value is even.
         if retval % 2 == 0 {

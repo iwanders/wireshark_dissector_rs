@@ -68,8 +68,7 @@ impl From<&FieldDisplay> for i32 {
 }
 impl From<i32> for FieldDisplay {
     fn from(z: i32) -> Self {
-        match z & 0xff
-        {
+        match z & 0xff {
             0 => FieldDisplay::BASE_NONE,
             1 => FieldDisplay::BASE_DEC,
             2 => FieldDisplay::BASE_HEX,
@@ -88,7 +87,7 @@ impl From<i32> for FieldDisplay {
             15 => FieldDisplay::BASE_PT_DCCP,
             16 => FieldDisplay::BASE_PT_SCTP,
             17 => FieldDisplay::BASE_OUI,
-            _=> FieldDisplay::BASE_NONE
+            _ => FieldDisplay::BASE_NONE,
         }
     }
 }
@@ -97,19 +96,17 @@ impl From<i32> for FieldDisplay {
 #[derive(Clone, Copy, Debug)]
 pub enum FieldDisplayFlags {
     /* Following constants have to be ORed with a field_display_e when dissector
-    * want to use specials value-string MACROs for a header_field_info */
+     * want to use specials value-string MACROs for a header_field_info */
     RANGE_STRING = 0x0100,
     EXT_STRING = 0x0200,
     VAL64_STRING = 0x0400,
     ALLOW_ZERO = 0x0800,  /*< Display <none> instead of <MISSING> for zero sized byte array */
-    UNIT_STRING = 0x1000,  /*< Add unit text to the field value */
-    NO_DISPLAY_VALUE = 0x2000,  /*< Just display the field name with no value.  Intended for
-                                 byte arrays or header fields above a subtree */
-    PROTOCOL_INFO = 0x4000,  /*< protocol_t in [FIELDCONVERT].  Internal use only. */
+    UNIT_STRING = 0x1000, /*< Add unit text to the field value */
+    NO_DISPLAY_VALUE = 0x2000, /*< Just display the field name with no value.  Intended for
+                          byte arrays or header fields above a subtree */
+    PROTOCOL_INFO = 0x4000, /*< protocol_t in [FIELDCONVERT].  Internal use only. */
     SPECIAL_VALS = 0x8000,  /*< field will not display "Unknown" if value_string match is not found */
 }
-
-
 
 #[repr(C)]
 #[allow(dead_code)]

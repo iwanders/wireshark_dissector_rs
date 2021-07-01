@@ -11,10 +11,12 @@ pub struct value_string {
     pub string: *const libc::c_char,
 }
 
-impl Default for value_string{
-    fn default() -> value_string
-    {
-        value_string { value: 0, string: 0 as *const libc::c_char}
+impl Default for value_string {
+    fn default() -> value_string {
+        value_string {
+            value: 0,
+            string: 0 as *const libc::c_char,
+        }
     }
 }
 
@@ -26,10 +28,12 @@ pub struct value64_string {
     pub string: *const libc::c_char,
 }
 
-impl Default for value64_string{
-    fn default() -> value64_string
-    {
-        value64_string { value: 0, string: 0 as *const libc::c_char}
+impl Default for value64_string {
+    fn default() -> value64_string {
+        value64_string {
+            value: 0,
+            string: 0 as *const libc::c_char,
+        }
     }
 }
 
@@ -42,9 +46,12 @@ pub struct value_range_string {
     pub string: *const libc::c_char,
 }
 
-impl Default for value_range_string{
-    fn default() -> value_range_string
-    {
-        value_range_string { value_min: 0, value_max: 0, string: 0 as *const libc::c_char}
+impl Default for value_range_string {
+    fn default() -> value_range_string {
+        value_range_string {
+            value_min: 0,
+            value_max: 0,
+            string: 0 as *const libc::c_char,
+        }
     }
 }

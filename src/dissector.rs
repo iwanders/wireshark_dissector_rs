@@ -6,10 +6,12 @@ use crate::plugin;
 extern crate libc;
 use core::fmt::Debug;
 
+pub use crate::epan::HeaderFieldInfo;
+
 /// The trait the dissector must adhere to.
 ///
 /// During the protocol registration, the [`Dissector::get_fields()`] method is invoked and those fields are registered for
-/// display in wireshark. After registration, the [`Dissector::set_field_indices()`] method is called with the [`PacketField`] elements
+/// display in wireshark. After registration, the [`Dissector::set_field_indices()`] method is called with the exact same elements
 /// that were retrieved from [`Dissector::get_fields()`], paired with the [`epan::proto::HFIndex`] values that should be used when
 /// display dissection results in the protocol tree.
 ///
@@ -24,11 +26,11 @@ use core::fmt::Debug;
 /// protocol tree and data buffer.
 pub trait Dissector {
     /// This function must return a vector of all the possible fields the dissector will end up using.
-    fn get_fields(self: &Self) -> Vec<Box<dyn epan::HeaderFieldInfo>>;
+    fn get_fields(self: &Self) -> Vec<Box<dyn HeaderFieldInfo>>;
 
     /// After the fields are registered, this function is called to provide the new [`epan::proto::HFIndex`] that should be used
     /// to refer to the registered fields.
-    fn set_field_indices(self: &mut Self, hf_indices: Vec<(Box<dyn epan::HeaderFieldInfo>, epan::proto::HFIndex)>);
+    fn set_field_indices(self: &mut Self, hf_indices: Vec<(Box<dyn HeaderFieldInfo>, epan::proto::HFIndex)>);
 
     /// Called when there is something to dissect, so probably called for every packet. This function must return how
     /// many bytes it used from the tvb.
@@ -90,7 +92,7 @@ impl std::cmp::PartialEq<&str> for StringContainer {
     }
 }
 
-/// Specification for a field that can be displayed, simpler form of field_info on the C side.
+/// A basic implementation for [`HeaderFieldInfo`] that just stores all the values.
 #[derive(Clone)]
 pub struct BasicHeaderFieldInfo {
     /// This is the name as displayed for this field. (`Field Name`).
@@ -101,25 +103,53 @@ pub struct BasicHeaderFieldInfo {
     pub field_type: FieldType,
     /// This specifies how the field should be represented.
     pub display: FieldDisplay,
+    /// The strings to look up from after dissection.
+    pub strings: epan::HeaderFieldStrings,
+    /// The blurb (brief description in the status bar) for this field.
+    pub blurb: Option<String>,
+    /// The bitmask of interesting bits.
+    pub bitmask: u64,
 }
 
 impl BasicHeaderFieldInfo {
-    pub const fn fixed(name: &'static str, abbrev: &'static str, field_type: FieldType, display: FieldDisplay) -> Self {
+    /// Helper function to easily make constant [`BasicHeaderFieldInfo`] fields.
+    pub const fn simple(
+        name: &'static str,
+        abbrev: &'static str,
+        field_type: FieldType,
+        display: FieldDisplay,
+    ) -> Self {
         BasicHeaderFieldInfo {
             name: StringContainer::StaticStr(name),
             abbrev: StringContainer::StaticStr(abbrev),
             field_type: field_type,
             display: display,
+            strings: epan::HeaderFieldStrings::None,
+            blurb: None,
+            bitmask: 0,
         }
     }
 
-    pub fn as_boxed(&self) -> Box<dyn epan::HeaderFieldInfo>
-    {
+    /// Return a clone of this instance in a new Box.
+    pub fn as_boxed(&self) -> Box<dyn HeaderFieldInfo> {
         Box::new(self.clone())
     }
 }
+impl Default for BasicHeaderFieldInfo {
+    fn default() -> Self {
+        BasicHeaderFieldInfo {
+            name: StringContainer::StaticStr(""),
+            abbrev: StringContainer::StaticStr(""),
+            field_type: FieldType::NONE,
+            display: FieldDisplay::BASE_NONE,
+            strings: epan::HeaderFieldStrings::None,
+            blurb: None,
+            bitmask: 0,
+        }
+    }
+}
 
-impl epan::HeaderFieldInfo for BasicHeaderFieldInfo {
+impl HeaderFieldInfo for BasicHeaderFieldInfo {
     fn name(&self) -> String {
         self.name.as_str().to_owned()
     }
@@ -132,6 +162,15 @@ impl epan::HeaderFieldInfo for BasicHeaderFieldInfo {
     fn display_type(&self) -> epan::proto::FieldDisplay {
         self.display
     }
+    fn strings(&self) -> epan::HeaderFieldStrings {
+        self.strings.clone()
+    }
+    fn blurb(&self) -> Option<String> {
+        self.blurb.clone()
+    }
+    fn bitmask(&self) -> u64 {
+        self.bitmask
+    }
 }
 
 impl Debug for BasicHeaderFieldInfo {
@@ -139,12 +178,14 @@ impl Debug for BasicHeaderFieldInfo {
         write!(f, "BasicHeaderFieldInfo {{ ")?;
         write!(f, "name: \"{}\", ", self.name.as_str())?;
         write!(f, "abbrev: \"{}\", ", self.abbrev.as_str())?;
-        write!(f, "field_type: {:?}, ", self.field_type)?;
+        write!(f, "feature_type: \"{:?}\", ", self.feature_type())?;
+        write!(f, "display_type: {:?}, ", self.display_type())?;
+        write!(f, "strings: {:?}, ", self.strings)?;
+        write!(f, "blurb: {:?}, ", self.blurb)?;
+        write!(f, "bitmask: {:?}, ", self.bitmask)?;
         write!(f, "}}")
     }
 }
-
-
 
 // https://rust-lang.github.io/rfcs/0418-struct-variants.html
 // This is so fancy
