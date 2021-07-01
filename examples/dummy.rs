@@ -26,7 +26,7 @@ struct MyDissector {
 struct ExtendedHeaderFieldInfo
 {
     info: dissector::BasicHeaderFieldInfo,
-    strings: Option<Vec<(u32, String)>>,
+    strings: epan::HeaderFieldStrings,
     blurb: Option<String>,
 }
 
@@ -43,7 +43,7 @@ impl epan::HeaderFieldInfo for ExtendedHeaderFieldInfo {
     fn display_type(&self) -> epan::proto::FieldDisplay {
         (&self.info as &dyn epan::HeaderFieldInfo).display_type()
     }
-    fn strings(&self) -> Option<Vec<(u32, String)>> {
+    fn strings(&self) -> epan::HeaderFieldStrings {
         self.strings.clone()
     }
     fn blurb(&self) -> Option<String> {
@@ -130,7 +130,7 @@ impl MyDissector {
                 display: FieldDisplay::BASE_HEX,
             },
             blurb: None,
-            strings: None,
+            strings: epan::HeaderFieldStrings::None,
         };
 
         let field_with_strings = ExtendedHeaderFieldInfo{
@@ -141,17 +141,48 @@ impl MyDissector {
                 display: FieldDisplay::BASE_HEX,
             },
             blurb: Some("This is the blurb.".to_string()),
-            strings: Some(vec![(0, "Zero".to_string()),
+            strings: epan::HeaderFieldStrings::ValueString(vec![(0, "Zero".to_string()),
                                (1, "One".to_string()),
                                (2, "Two".to_string()),
                                (3, "Three".to_string()),
                              ]),
         };
 
+        let field_with_strings64 = ExtendedHeaderFieldInfo{
+            info: dissector::BasicHeaderFieldInfo {
+                name: dissector::StringContainer::String(String::from("runtime.field.with_strings64")),
+                abbrev: dissector::StringContainer::String(String::from("proto.runtime.with_strings64")),
+                field_type: FieldType::UINT64,
+                display: FieldDisplay::BASE_HEX,
+            },
+            blurb: Some("This is the blurb.".to_string()),
+            strings: epan::HeaderFieldStrings::Value64String(vec![(0, "Zero".to_string()),
+                               (1, "One".to_string()),
+                               (2, "Two".to_string()),
+                               (3, "Three".to_string()),
+                             ]),
+        };
+
+        let with_strings_range = ExtendedHeaderFieldInfo{
+            info: dissector::BasicHeaderFieldInfo {
+                name: dissector::StringContainer::String(String::from("runtime.field.with_strings_range")),
+                abbrev: dissector::StringContainer::String(String::from("proto.runtime.with_strings_range")),
+                field_type: FieldType::UINT32,
+                display: FieldDisplay::BASE_HEX,
+            },
+            blurb: Some("This is the blurb.".to_string()),
+            strings: epan::HeaderFieldStrings::RangeString(vec![((0, 5), "Few".to_string()),
+                               ((5, 1<<16), "Many".to_string()),
+                               ((1<<16, 0xFFFFFFFF), "Lots".to_string()),
+                             ]),
+        };
+
         MyDissector {
             field_mapping: Vec::new(),
             tree_indices: Vec::new(),
-            fields_made_at_runtime: vec![runtime_defined_field, field_with_strings],
+            fields_made_at_runtime: vec![runtime_defined_field, field_with_strings,
+                                        field_with_strings64,
+                                        with_strings_range]
         }
     }
 }
@@ -243,6 +274,25 @@ impl dissector::Dissector for MyDissector {
             tvb,
             offset + 10,
             2,
+            Encoding::BIG_ENDIAN,
+        );
+
+
+        // Add the item with the 64 bit enums.
+        fold_thing.add_item(
+            self.get_id(&self.fields_made_at_runtime[2]),
+            tvb,
+            offset + 10,
+            8,
+            Encoding::BIG_ENDIAN,
+        );
+
+        // add the item with the range
+        fold_thing.add_item(
+            self.get_id(&self.fields_made_at_runtime[3]),
+            tvb,
+            offset + 14,
+            4,
             Encoding::BIG_ENDIAN,
         );
 
