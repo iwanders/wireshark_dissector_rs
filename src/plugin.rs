@@ -6,7 +6,6 @@ use crate::epan;
 use crate::util;
 
 use crate::dissector::Dissector;
-use crate::dissector::PacketField;
 
 fn string_container_to_perm(v: &dissector::StringContainer) -> *const libc::c_char {
     match v {
@@ -15,17 +14,30 @@ fn string_container_to_perm(v: &dissector::StringContainer) -> *const libc::c_ch
     }
 }
 
-impl From<PacketField> for epan::proto::header_field_info {
-    fn from(field: PacketField) -> Self {
+impl From<&Box<dyn epan::HeaderFieldInfo>> for epan::proto::header_field_info {
+    fn from(hfi: &Box<dyn epan::HeaderFieldInfo>) -> Self {
+
         epan::proto::header_field_info {
-            name: string_container_to_perm(&field.name),
-            abbrev: string_container_to_perm(&field.abbrev),
-            type_: field.field_type.into(),
-            display: field.display.into(),
+            name: util::perm_string_ptr(&hfi.name()),
+            abbrev: util::perm_string_ptr(&hfi.abbrev()),
+            type_: hfi.feature_type(),
+            display: hfi.display_type(),
+            // pub strings: *const libc::c_char, // actually void ptr
+            // pub bitmask: u64,
+            // pub blurb: *const libc::c_char,
+
+            //
+            // pub id: i32,
+            // pub parent: i32,
+            // pub ref_type: hf_ref_type,
+            // pub same_name_pref_id: i32,
+            // pub same_name_next: *mut header_field_info,
             ..Default::default()
         }
+
     }
 }
+
 
 use std::rc::Rc;
 // Global state
@@ -101,7 +113,7 @@ extern "C" fn proto_register_protoinfo() {
     let mut field_ids: Vec<epan::proto::HFIndex> = Vec::new();
 
     // Obtain the fields we are about to register.
-    let fields_input = dissector_tmp.get_fields();
+    let mut fields_input = dissector_tmp.get_fields();
     unsafe {
         // Register our protocol names and abbreviation.
         let (full_name, short_name, filter_name) = dissector_tmp.get_protocol_name();
@@ -119,7 +131,7 @@ extern "C" fn proto_register_protoinfo() {
         for i in 0..fields_input.len() {
             hf_fields.push(epan::proto::hf_register_info {
                 p_id: &mut field_ids[i],
-                hfinfo: fields_input[i].clone().into(),
+                hfinfo: (&fields_input[i]).into(),
             });
         }
 
@@ -129,13 +141,12 @@ extern "C" fn proto_register_protoinfo() {
     }
 
     // And, then we assembly the return struct.
-    let mut hfindices: Vec<(PacketField, epan::proto::HFIndex)> = Vec::new();
-    for i in 0..field_ids.len() {
-        hfindices.push((fields_input[i].clone(), field_ids[i]));
-    }
+    let hf_indices = fields_input.drain(..).enumerate().map(|(i, v)| {
+        (v, field_ids[i])
+    }).collect::<Vec<(Box<dyn epan::HeaderFieldInfo>, epan::proto::HFIndex)>>();
 
     // Pass the now usable indices back to the dissector.
-    dissector_tmp.set_field_indices(hfindices);
+    dissector_tmp.set_field_indices(hf_indices);
 
     // And, then lastly, we create the tree indices.
     let desired_count = dissector_tmp.get_tree_count();
